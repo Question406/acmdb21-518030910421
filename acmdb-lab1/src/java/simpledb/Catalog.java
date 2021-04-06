@@ -23,9 +23,8 @@ public class Catalog {
         DbFile file;
         String name;
         String pkeyField;
-        public CatalogItem(DbFile file, String name, String pkeyField) {
+        public CatalogItem(DbFile file, String pkeyField) {
             this.file = file;
-            this.name = name;
             this.pkeyField = pkeyField;
         }
     }
@@ -56,8 +55,14 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
-        this.itemMap.put(file.getId(), new CatalogItem(file, name, pkeyField));
-        this.name2Id.put(name, file.getId());
+        int fileID = file.getId();
+        if (this.itemMap.containsKey(fileID)) {
+            this.itemMap.remove(fileID);
+            this.name2Id.remove(getTableName(fileID));
+        }
+
+        this.itemMap.put(fileID, new CatalogItem(file, pkeyField));
+        this.name2Id.put(name, fileID);
     }
 
     public void addTable(DbFile file, String name) {
@@ -127,9 +132,10 @@ public class Catalog {
 
     public String getTableName(int id) {
         // some code goes here
-        return this.itemMap.get(id).name;
+        // interesting code
+        return this.name2Id.entrySet().stream().filter(e -> e.getValue() == id).map(Map.Entry::getKey).collect(Collectors.toList()).get(0);
     }
-    
+
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
