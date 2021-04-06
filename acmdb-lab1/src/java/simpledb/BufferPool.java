@@ -1,7 +1,10 @@
 package simpledb;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,7 +23,10 @@ public class BufferPool {
     private static final int PAGE_SIZE = 4096;
 
     private static int pageSize = PAGE_SIZE;
-    
+
+    private int numPages;
+    HashMap<PageId, Page> pageMap = null;
+
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
@@ -33,6 +39,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.numPages = numPages;
+        this.pageMap = new HashMap<>();
     }
     
     public static int getPageSize() {
@@ -64,10 +72,23 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if (pageMap.containsKey(pid))
+            // hit in buffer pool
+            return pageMap.get(pid);
+        else {
+            // not in buffer pool, collect it from disk
+            DbFile belongingTable = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page retrievedPage = belongingTable.readPage(pid);
+            if (pageMap.size() == numPages) {
+                // should evict
+                evictPage();
+            }
+            pageMap.put(pid, retrievedPage);
+        }
+        return pageMap.get(pid);
     }
 
     /**
@@ -153,6 +174,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
     }
+
 
     /**
      * Flush all dirty pages to disk.

@@ -67,8 +67,7 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
-
+        return BufferPool.getPageSize() * 8 / (td.getSize() * 8 + 1);
     }
 
     /**
@@ -76,10 +75,8 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {        
-        
         // some code goes here
-        return 0;
-                 
+        return (int) Math.ceil((double) getNumTuples() / 8);
     }
     
     /** Return a view of this page before it was modified
@@ -111,8 +108,8 @@ public class HeapPage implements Page {
      * @return the PageId associated with this page.
      */
     public HeapPageId getId() {
-    // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        // some code goes here
+        return pid;
     }
 
     /**
@@ -282,7 +279,11 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int res = 0;
+        for (int i = 0; i < getNumTuples(); i++)
+            if (! isSlotUsed(i))
+                res++;
+        return res;
     }
 
     /**
@@ -290,7 +291,9 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        byte bit = header[i / 8];
+        bit = (byte) (bit >> (i % 8));
+        return 1 == (bit & 1);
     }
 
     /**
@@ -307,8 +310,37 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return new PageIterator();
     }
 
+    private class PageIterator implements Iterator<Tuple> {
+        int slotInd = 0;  // slot index
+        int validRem = 0; // valid slot reminder
+
+        public PageIterator(){
+            slotInd = 0;
+            validRem = getNumTuples() - getNumEmptySlots();
+        }
+
+        @Override
+        public boolean hasNext() {
+            return (slotInd < getNumTuples()) && (validRem > 0);
+        }
+
+        @Override
+        public Tuple next() {
+            if (! hasNext())
+                throw new NoSuchElementException("@PageIteratorNext\n");
+            while (!isSlotUsed(slotInd))
+                slotInd++;
+            validRem--;
+            return tuples[slotInd++];
+        }
+
+        @Override
+        public void remove(){
+            throw new UnsupportedOperationException("@PageIterator remove\n");
+        }
+    }
 }
 

@@ -68,8 +68,7 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
-
+        return (Integer.toString(pid.hashCode()) + tupleno).hashCode();
     }
 
 }
