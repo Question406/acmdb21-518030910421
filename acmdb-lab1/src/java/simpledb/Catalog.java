@@ -21,7 +21,6 @@ public class Catalog {
 
     private class CatalogItem {
         DbFile file;
-        String name;
         String pkeyField;
         public CatalogItem(DbFile file, String pkeyField) {
             this.file = file;
