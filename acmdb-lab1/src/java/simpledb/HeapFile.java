@@ -1,6 +1,5 @@
 package simpledb;
 
-import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
 
@@ -79,7 +78,8 @@ public class HeapFile implements DbFile {
         try {
             randomAccessFile = new RandomAccessFile(file, "r");
             int offset = pid.pageNumber() * len;
-            int bytesRead = randomAccessFile.read(destBuf, offset, len);
+            randomAccessFile.seek(offset);
+            int bytesRead = randomAccessFile.read(destBuf, 0, len);
         } catch (Exception e) {
              throw new IllegalArgumentException("@HeapFile readPage\n");
         }
@@ -143,22 +143,35 @@ public class HeapFile implements DbFile {
             return  (HeapPage) Database.getBufferPool().getPage(tid, new HeapPageId(getId(), pageInd), Permissions.READ_ONLY);
         }
 
-        private boolean checkNext(Integer nxtInd, HeapPage nxtPage, Iterator<Tuple> nxtIt) throws TransactionAbortedException, DbException {
+        /**
+         * @param changeCur, whether change cur page in the iterator
+         * @return
+         * @throws TransactionAbortedException
+         * @throws DbException
+         */
+        private boolean checkNext(boolean changeCur) throws TransactionAbortedException, DbException {
             if (curPg == null || tpIt == null)
                 return false; // no next
-
             // this page not done
             if (tpIt.hasNext()) {
                 return true; // has next && no need to change curPage, curIt
             }
             else {
                 // change to next page
-                nxtInd = pgInd + 1;
+                int nxtInd = pgInd + 1;
+                HeapPage nxtPage = null;
+                Iterator<Tuple> nxtIt = null;
                 while (nxtInd < numPages()) {
                     nxtPage = getHeapPage(nxtInd);
                     nxtIt = nxtPage.iterator();
-                    if (nxtIt.hasNext())
+                    if (nxtIt.hasNext()) {
+                        if (changeCur) {
+                            curPg = nxtPage;
+                            tpIt = nxtIt;
+                            pgInd = nxtInd;
+                        }
                         return true; // has next && change curPage, curIt
+                    }
                     ++nxtInd;
                 }
                 return false; // no next
@@ -175,14 +188,12 @@ public class HeapFile implements DbFile {
         @Override
         public boolean hasNext() throws DbException, TransactionAbortedException {
             int tmpInd = 0;
-            HeapPage tmpPage = null;
-            Iterator<Tuple> tmpIt = null;
-            return checkNext(tmpInd, tmpPage, tmpIt);
+            return checkNext(false);
         }
 
         @Override
         public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
-            if (! checkNext(pgInd, curPg, tpIt))
+            if (! checkNext(true))
                 throw new NoSuchElementException("@HeapFileIterator next\n");
             return tpIt.next();
         }
