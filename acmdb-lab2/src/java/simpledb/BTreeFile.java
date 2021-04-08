@@ -196,6 +196,14 @@ public class BTreeFile implements DbFile {
 			Field f) 
 					throws DbException, TransactionAbortedException {
 		// some code goes here
+		// current node is leaf node: return current node
+		if (pid.pgcateg() == BTreePageId.LEAF)
+			return (BTreeLeafPage) getPage(tid, dirtypages, pid, perm);
+		else {
+			// internal page, find next node containing key field
+			BTreeInternalPage curPageNode = (BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+
+		}
         return null;
 	}
 	
