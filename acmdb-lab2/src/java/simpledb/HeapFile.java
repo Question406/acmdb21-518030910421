@@ -81,7 +81,7 @@ public class HeapFile implements DbFile {
             randomAccessFile.seek(offset);
             int bytesRead = randomAccessFile.read(destBuf, 0, len);
         } catch (Exception e) {
-             throw new IllegalArgumentException("@HeapFile readPage\n");
+            e.printStackTrace();
         }
 
         Page resPage = null;
@@ -165,6 +165,7 @@ public class HeapFile implements DbFile {
                     nxtPage = getHeapPage(nxtInd);
                     nxtIt = nxtPage.iterator();
                     if (nxtIt.hasNext()) {
+                        Debug.log(String.valueOf(pgInd) + " : " + numPages());
                         if (changeCur) {
                             curPg = nxtPage;
                             tpIt = nxtIt;

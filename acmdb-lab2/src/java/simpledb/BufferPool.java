@@ -1,11 +1,8 @@
 package simpledb;
 
-import javax.xml.crypto.Data;
 import java.io.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -25,7 +22,12 @@ public class BufferPool {
     private static int pageSize = PAGE_SIZE;
 
     private int numPages;
-    HashMap<PageId, Page> pageMap = null;
+    private Page[] pages = null;
+    private HashMap<PageId, Integer> pageid2ind = null; // pageid to page index in bufferpool
+    private LinkedList<PageId> LRUList = null; // first is the least recent used element
+    private BitSet dirty = null; // use bitmap to mark which slot is dirty
+    private BitSet empty = null; // use bitmap to mark which slot is empty
+
 
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
@@ -40,7 +42,12 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.numPages = numPages;
-        this.pageMap = new HashMap<>();
+        this.pages = new Page[numPages];
+        this.dirty = new BitSet(numPages);
+        this.empty = new BitSet(numPages);
+        this.empty.flip(0, numPages); // set all to empty
+        this.pageid2ind = new HashMap<>();
+        this.LRUList = new LinkedList<>();
     }
     
     public static int getPageSize() {
@@ -75,20 +82,30 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        if (pageMap.containsKey(pid))
+        if (pageid2ind.containsKey(pid)) {
             // hit in buffer pool
-            return pageMap.get(pid);
+            int ind = pageid2ind.get(pid);
+            LRUList.remove(pid);
+            LRUList.addLast(pid);
+            return pages[ind];
+        }
         else {
             // not in buffer pool, collect it from disk
+            // evict first then retrieve
+            if (pageid2ind.size() == numPages)
+                evictPage();
+            // get empty index
+            int emptyInd = empty.nextSetBit(0);
+            assert (emptyInd >= 0 && emptyInd < numPages); // after evict, must have one empty slot
+
             DbFile belongingTable = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page retrievedPage = belongingTable.readPage(pid);
-            if (pageMap.size() == numPages) {
-                // should evict
-                evictPage();
-            }
-            pageMap.put(pid, retrievedPage);
+            pages[emptyInd] = retrievedPage;
+            pageid2ind.put(pid, emptyInd);
+            empty.clear(emptyInd); // nonemtpy
+            LRUList.addLast(pid);  // LRU last
+            return pages[emptyInd];
         }
-        return pageMap.get(pid);
     }
 
     /**
@@ -184,7 +201,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+        for (PageId pid : pageid2ind.keySet()) {
+            flushPage(pid);
+        }
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -198,6 +217,19 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        int ind = pageid2ind.getOrDefault(pid, -1);
+        if (ind != -1)  {
+            if (dirty.get(ind)) {
+                try {
+                    flushPage(pid);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            empty.set(ind);
+            LRUList.remove(pid);
+            pageid2ind.remove(pid);
+        }
     }
 
     /**
@@ -207,6 +239,12 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        int ind = pageid2ind.getOrDefault(pid, -1);
+        if (ind != -1) {
+            Page toFlush = pages[ind];
+            Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(toFlush);
+            dirty.set(ind, false); // mark as undirty, don't change empty since we don't evict it
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -223,6 +261,19 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        PageId toEvict = LRUList.pollFirst();
+        int ind = pageid2ind.get(toEvict);
+        // flush dirty page
+        if (dirty.get(ind)) {
+            try {
+                flushPage(toEvict);
+            } catch (IOException e) {
+                throw new DbException("@evictPage IOException");
+            }
+        }
+        assert (!empty.get(ind));
+        pageid2ind.remove(toEvict);
+        empty.set(ind);
     }
 
 }
