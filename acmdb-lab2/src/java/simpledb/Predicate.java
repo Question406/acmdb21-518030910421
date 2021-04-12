@@ -112,13 +112,11 @@ public class Predicate implements Serializable {
      */
     public String toString() {
         // some code goes here
-        StringBuilder strBuilder = new StringBuilder();
-        strBuilder.append("f = ");
-        strBuilder.append(field);
-        strBuilder.append(" op= ");
-        strBuilder.append(op);
-        strBuilder.append(" operand = ");
-        strBuilder.append(operand);
-        return strBuilder.toString();
+        return "f = " +
+                field +
+                " op= " +
+                op +
+                " operand = " +
+                operand;
     }
 }

@@ -202,9 +202,24 @@ public class BTreeFile implements DbFile {
 		else {
 			// internal page, find next node containing key field
 			BTreeInternalPage curPageNode = (BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
-
+			BTreeInternalPageIterator internalPageIt = (BTreeInternalPageIterator) curPageNode.iterator();
+			// field is null, then return left-most leaf page
+			if (f == null) {
+				assert internalPageIt.hasNext();
+				BTreeEntry firstEntry = internalPageIt.next();
+				return findLeafPage(tid, dirtypages, firstEntry.getLeftChild(), perm, f);
+			}
+			// field not null
+			BTreeEntry entry = null;
+			while (internalPageIt.hasNext()) {
+				entry = internalPageIt.next();
+				Field key = entry.getKey();
+                if (f.compare(Op.LESS_THAN_OR_EQ, key))
+					return findLeafPage(tid, dirtypages, entry.getLeftChild(), perm, f);
+			}
+			assert entry != null;
+			return findLeafPage(tid, dirtypages, entry.getLeftChild(), perm, f);
 		}
-        return null;
 	}
 	
 	/**
