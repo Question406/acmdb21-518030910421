@@ -171,6 +171,10 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile toAddtable = Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> dirtyPages = toAddtable.insertTuple(tid, t);
+        for (Page dirtyPage : dirtyPages)
+            dirtyPage.markDirty(true, tid);
     }
 
     /**
