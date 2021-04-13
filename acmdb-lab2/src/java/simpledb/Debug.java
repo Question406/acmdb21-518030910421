@@ -16,7 +16,6 @@ public class Debug {
   private static final int DEBUG_LEVEL;
   static {
       String debug = System.getProperty("simpledb.Debug");
-      debug = "0";
       if (debug == null) {
           // No system property = disabled
           DEBUG_LEVEL = -1;

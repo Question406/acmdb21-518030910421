@@ -87,6 +87,7 @@ public class BufferPool {
             int ind = pageid2ind.get(pid);
             LRUList.remove(pid);
             LRUList.addLast(pid);
+            dirty.set(ind);
             return pages[ind];
         }
         else {
@@ -103,6 +104,7 @@ public class BufferPool {
             pages[emptyInd] = retrievedPage;
             pageid2ind.put(pid, emptyInd);
             empty.clear(emptyInd); // nonemtpy
+            dirty.set(emptyInd);
             LRUList.addLast(pid);  // LRU last
             return pages[emptyInd];
         }
@@ -172,23 +174,8 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         DbFile toAddtable = Database.getCatalog().getDatabaseFile(tableId);
-
-        BTreePageId rootPtrPid = new BTreePageId(toAddtable.getId(), 0, BTreePageId.ROOT_PTR);
-        BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
-        Debug.log(0, "%s", rootPtr.getId());
-        BTreePageId rootId = rootPtr.getRootId();
-        Debug.log(0, "before insert %s", rootId);
-
-//		Debug.log(0, "root before leaf split: %s", root.getRootId());
         ArrayList<Page> dirtyPages = toAddtable.insertTuple(tid, t);
-        rootPtrPid = new BTreePageId(toAddtable.getId(), 0, BTreePageId.ROOT_PTR);
-        rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
-        rootId = rootPtr.getRootId();
-        Debug.log(0, "%s", rootPtr.getId());
-        Debug.log(0, "after insert %s", rootId);
-
         dirtyPages.forEach(dirtyPage -> dirtyPage.markDirty(true, tid));
-
     }
 
     /**
@@ -219,9 +206,13 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-        for (PageId pid : pageid2ind.keySet()) {
-            flushPage(pid);
-        }
+        pageid2ind.keySet().forEach(pid -> {
+            try {
+                flushPage(pid);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -261,9 +252,8 @@ public class BufferPool {
         if (ind != -1) {
             Page toFlush = pages[ind];
             Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(toFlush);
-            dirty.set(ind, false); // mark as undirty, don't change empty since we don't evict it
+            dirty.clear(ind); // mark as undirty, don't change empty since we don't evict it
         }
-        Debug.log(0, "flush page %s", pid);
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -293,7 +283,6 @@ public class BufferPool {
         assert (!empty.get(ind));
         pageid2ind.remove(toEvict);
         empty.set(ind);
-        Debug.log(0, "evict page %s", toEvict);
     }
 
 }

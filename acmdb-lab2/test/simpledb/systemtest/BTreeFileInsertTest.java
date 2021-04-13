@@ -14,11 +14,9 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import junit.framework.JUnit4TestAdapter;
 
-import javax.xml.crypto.Data;
-
 public class BTreeFileInsertTest extends SimpleDbTestBase {
 	private TransactionId tid;
-
+	
 	/**
 	 * Set up initial resources for each unit test.
 	 */
@@ -30,14 +28,13 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 	@After
 	public void tearDown() throws Exception {
 		Database.getBufferPool().transactionComplete(tid);
-
+		
 		// set the page size back to the default
 		BufferPool.resetPageSize();
 		Database.reset();
 	}
 
-	@Test
-	public void addTuple() throws Exception {
+	@Test public void addTuple() throws Exception {
 		// create an empty B+ tree file keyed on the second field of a 2-field tuple
 		File emptyFile = File.createTempFile("empty", ".dat");
 		emptyFile.deleteOnExit();
@@ -74,11 +71,10 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 			int value = ((IntField) t.getField(0)).getValue();
 			assertTrue(value >= prev);
 			prev = value;
-		}
+		} 
 	}
 
-	@Test
-	public void addDuplicateTuples() throws Exception {
+	@Test public void addDuplicateTuples() throws Exception {
 		// create an empty B+ tree file keyed on the second field of a 2-field tuple
 		File emptyFile = File.createTempFile("empty", ".dat");
 		emptyFile.deleteOnExit();
@@ -109,7 +105,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		while(it.hasNext()) {
 			it.next();
 			count++;
-		}
+		} 
 		assertEquals(600, count);
 
 		ipred = new IndexPredicate(Op.GREATER_THAN_OR_EQ, new IntField(2));
@@ -119,7 +115,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		while(it.hasNext()) {
 			it.next();
 			count++;
-		}
+		} 
 		assertEquals(1800, count);
 
 		ipred = new IndexPredicate(Op.LESS_THAN, new IntField(2));
@@ -129,7 +125,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		while(it.hasNext()) {
 			it.next();
 			count++;
-		}
+		} 
 		assertEquals(1200, count);
 	}
 
@@ -176,16 +172,10 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 				null, null, 0);
 
 		// we will need more room in the buffer pool for this test
-		Database.resetBufferPool(500);
+		Database.resetBufferPool(500);		
 
 		// there should be 504 leaf pages + 1 internal node
 		assertEquals(505, bigFile.numPages());
-
-		BTreePageId rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
-		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
-		Debug.log(0, "%s", rootPtr.getId());
-		BTreePageId rootId = rootPtr.getRootId();
-		Debug.log(0, "get root %s", rootId);
 
 		// now insert a tuple
 		Database.getBufferPool().insertTuple(tid, bigFile.getId(), BTreeUtility.getBTreeTuple(10, 2));
@@ -194,14 +184,9 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		assertEquals(508, bigFile.numPages());
 
 		// the root node should be an internal node and have 2 children (1 entry)
-//		BTreePageId rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
-//		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
-//		BTreePageId rootId = rootPtr.getRootId();
-		rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
-		rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
-		Debug.log(0, "%s", rootPtr.getId());
-		rootId = rootPtr.getRootId();
-		Debug.log(0, "get root %s", rootId);
+		BTreePageId rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
+		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
+		BTreePageId rootId = rootPtr.getRootId();
 		assertEquals(rootId.pgcateg(), BTreePageId.INTERNAL);
 		BTreeInternalPage root = (BTreeInternalPage) Database.getBufferPool().getPage(tid, rootId, Permissions.READ_ONLY);
 		assertEquals(502, root.getNumEmptySlots());
@@ -248,7 +233,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
     	// 125*2*124 = 31000)
 		BTreeFile bigFile = BTreeUtility.createRandomBTreeFile(2, 31000,
 				null, null, 0);
-
+		
 		// we will need more room in the buffer pool for this test
 		Database.resetBufferPool(1000);
 
@@ -289,12 +274,8 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 			count++;
 		}
 		fit.close();
-		assertEquals(31100, count);
-
-	}
-
-	@Test
-	public void testChangeRootPtr() throws Exception {
+		assertEquals(31100, count);	
+		
 	}
 
 	/**
