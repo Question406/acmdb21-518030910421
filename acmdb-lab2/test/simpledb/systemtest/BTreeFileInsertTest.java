@@ -14,9 +14,11 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import junit.framework.JUnit4TestAdapter;
 
+import javax.xml.crypto.Data;
+
 public class BTreeFileInsertTest extends SimpleDbTestBase {
 	private TransactionId tid;
-	
+
 	/**
 	 * Set up initial resources for each unit test.
 	 */
@@ -28,7 +30,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 	@After
 	public void tearDown() throws Exception {
 		Database.getBufferPool().transactionComplete(tid);
-		
+
 		// set the page size back to the default
 		BufferPool.resetPageSize();
 		Database.reset();
@@ -179,6 +181,12 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		// there should be 504 leaf pages + 1 internal node
 		assertEquals(505, bigFile.numPages());
 
+		BTreePageId rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
+		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
+		Debug.log(0, "%s", rootPtr.getId());
+		BTreePageId rootId = rootPtr.getRootId();
+		Debug.log(0, "get root %s", rootId);
+
 		// now insert a tuple
 		Database.getBufferPool().insertTuple(tid, bigFile.getId(), BTreeUtility.getBTreeTuple(10, 2));
 
@@ -186,9 +194,13 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		assertEquals(508, bigFile.numPages());
 
 		// the root node should be an internal node and have 2 children (1 entry)
-		BTreePageId rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
-		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
-		BTreePageId rootId = rootPtr.getRootId();
+//		BTreePageId rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
+//		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
+//		BTreePageId rootId = rootPtr.getRootId();
+		rootPtrPid = new BTreePageId(bigFile.getId(), 0, BTreePageId.ROOT_PTR);
+		rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(tid, rootPtrPid, Permissions.READ_ONLY);
+		Debug.log(0, "%s", rootPtr.getId());
+		rootId = rootPtr.getRootId();
 		Debug.log(0, "get root %s", rootId);
 		assertEquals(rootId.pgcateg(), BTreePageId.INTERNAL);
 		BTreeInternalPage root = (BTreeInternalPage) Database.getBufferPool().getPage(tid, rootId, Permissions.READ_ONLY);
@@ -279,6 +291,10 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		fit.close();
 		assertEquals(31100, count);
 
+	}
+
+	@Test
+	public void testChangeRootPtr() throws Exception {
 	}
 
 	/**

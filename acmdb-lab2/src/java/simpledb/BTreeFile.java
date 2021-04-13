@@ -15,7 +15,7 @@ import static simpledb.BTreePageId.LEAF;
  * a set of internal pages, and a set of leaf pages, which contain a collection of tuples
  * in sorted order. BTreeFile works closely with BTreeLeafPage, BTreeInternalPage,
  * and BTreeRootPtrPage. The format of these pages is described in their constructors.
- * 
+ *
  * @see simpledb.BTreeLeafPage#BTreeLeafPage
  * @see simpledb.BTreeInternalPage#BTreeInternalPage
  * @see simpledb.BTreeHeaderPage#BTreeHeaderPage
@@ -31,7 +31,7 @@ public class BTreeFile implements DbFile {
 
 	/**
 	 * Constructs a B+ tree file backed by the specified file.
-	 * 
+	 *
 	 * @param f - the file that stores the on-disk backing store for this B+ tree
 	 *            file.
 	 * @param key - the field which index is keyed on
@@ -57,7 +57,7 @@ public class BTreeFile implements DbFile {
 	 * BTreeFile has a "unique id," and that you always return the same value for
 	 * a particular BTreeFile. We suggest hashing the absolute file name of the
 	 * file underlying the BTreeFile, i.e. f.getAbsoluteFile().hashCode().
-	 * 
+	 *
 	 * @return an ID uniquely identifying this BTreeFile.
 	 */
 	public int getId() {
@@ -66,7 +66,7 @@ public class BTreeFile implements DbFile {
 
 	/**
 	 * Returns the TupleDesc of the table stored in this DbFile.
-	 * 
+	 *
 	 * @return TupleDesc of this DbFile.
 	 */
 	public TupleDesc getTupleDesc() {
@@ -76,7 +76,7 @@ public class BTreeFile implements DbFile {
 	/**
 	 * Read a page from the file on disk. This should not be called directly
 	 * but should be called from the BufferPool via getPage()
-	 * 
+	 *
 	 * @param pid - the id of the page to read from disk
 	 * @return the page constructed from the contents on disk
 	 */
@@ -102,7 +102,7 @@ public class BTreeFile implements DbFile {
 			}
 			else {
 				byte pageBuf[] = new byte[BufferPool.getPageSize()];
-				if (bis.skip(BTreeRootPtrPage.getPageSize() + (id.pageNumber()-1) * BufferPool.getPageSize()) != 
+				if (bis.skip(BTreeRootPtrPage.getPageSize() + (id.pageNumber()-1) * BufferPool.getPageSize()) !=
 						BTreeRootPtrPage.getPageSize() + (id.pageNumber()-1) * BufferPool.getPageSize()) {
 					throw new IllegalArgumentException(
 							"Unable to seek to correct place in BTreeFile");
@@ -143,14 +143,14 @@ public class BTreeFile implements DbFile {
 	}
 
 	/**
-	 * Write a page to disk.  This should not be called directly but should 
+	 * Write a page to disk.  This should not be called directly but should
 	 * be called from the BufferPool when pages are flushed to disk
-	 * 
+	 *
 	 * @param page - the page to write to disk
 	 */
 	public void writePage(Page page) throws IOException {
 		BTreePageId id = (BTreePageId) page.getId();
-		
+
 		byte[] data = page.getPageData();
 		RandomAccessFile rf = new RandomAccessFile(f, "rw");
 		if(id.pgcateg() == BTreePageId.ROOT_PTR) {
@@ -163,7 +163,7 @@ public class BTreeFile implements DbFile {
 			rf.close();
 		}
 	}
-	
+
 	/**
 	 * Returns the number of pages in this BTreeFile.
 	 */
@@ -182,21 +182,21 @@ public class BTreeFile implements DbFile {
 	/**
 	 * Recursive function which finds and locks the leaf page in the B+ tree corresponding to
 	 * the left-most page possibly containing the key field f. It locks all internal
-	 * nodes along the path to the leaf node with READ_ONLY permission, and locks the 
+	 * nodes along the path to the leaf node with READ_ONLY permission, and locks the
 	 * leaf node with permission perm.
-	 * 
+	 *
 	 * If f is null, it finds the left-most leaf page -- used for the iterator
-	 * 
+	 *
 	 * @param tid - the transaction id
 	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
 	 * @param pid - the current page being searched
 	 * @param perm - the permissions with which to lock the leaf page
 	 * @param f - the field to search for
 	 * @return the left-most leaf page possibly containing the key field f
-	 * 
+	 *
 	 */
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
-			Field f) 
+			Field f)
 					throws DbException, TransactionAbortedException {
 		// some code goes here
 		// current node is leaf node: return current node
@@ -224,21 +224,21 @@ public class BTreeFile implements DbFile {
 			return findLeafPage(tid, dirtypages, entry.getRightChild(), perm, f);
 		}
 	}
-	
+
 	/**
 	 * Convenience method to find a leaf page when there is no dirtypages HashMap.
 	 * Used by the BTreeFile iterator.
 	 * @see #findLeafPage(TransactionId, HashMap, BTreePageId, Permissions, Field)
-	 * 
+	 *
 	 * @param tid - the transaction id
 	 * @param pid - the current page being searched
 	 * @param perm - the permissions with which to lock the leaf page
 	 * @param f - the field to search for
 	 * @return the left-most leaf page possibly containing the key field f
-	 * 
+	 *
 	 */
 	BTreeLeafPage findLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
-			Field f) 
+			Field f)
 					throws DbException, TransactionAbortedException {
 		return findLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
 	}
@@ -246,25 +246,25 @@ public class BTreeFile implements DbFile {
 	/**
 	 * Split a leaf page to make room for new tuples and recursively split the parent node
 	 * as needed to accommodate a new entry. The new entry should have a key matching the key field
-	 * of the first tuple in the right-hand page (the key is "copied up"), and child pointers 
-	 * pointing to the two leaf pages resulting from the split.  Update sibling pointers and parent 
-	 * pointers as needed.  
-	 * 
+	 * of the first tuple in the right-hand page (the key is "copied up"), and child pointers
+	 * pointing to the two leaf pages resulting from the split.  Update sibling pointers and parent
+	 * pointers as needed.
+	 *
 	 * Return the leaf page into which a new tuple with key field "field" should be inserted.
-	 * 
+	 *
 	 * @param tid - the transaction id
 	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
 	 * @param page - the leaf page to split
 	 * @param field - the key field of the tuple to be inserted after the split is complete. Necessary to know
 	 * which of the two pages to return.
 	 * @see #getParentWithEmptySlots(TransactionId, HashMap, BTreePageId, Field)
-	 * 
+	 *
 	 * @return the leaf page into which the new tuple should be inserted
 	 * @throws DbException
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
-	protected BTreeLeafPage splitLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreeLeafPage page, Field field) 
+	protected BTreeLeafPage splitLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreeLeafPage page, Field field)
 			throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
         //
@@ -276,6 +276,9 @@ public class BTreeFile implements DbFile {
 		// tuple with the given key field should be inserted.
 
 		Debug.log(0, "splitLeaf");
+		BTreeRootPtrPage root = getRootPtrPage(tid, dirtypages);
+		Debug.log(0, "root before leaf split: %s", root.getRootId());
+
 		BTreeLeafPage newPage = (BTreeLeafPage) getEmptyPage(tid, dirtypages, LEAF);
 
 		// update sibling pointers
@@ -309,6 +312,9 @@ public class BTreeFile implements DbFile {
 		assert dirtypages.containsKey(newPage.pid);
 		assert dirtypages.containsKey(page.pid);
 		assert dirtypages.containsKey(parentPage.pid);
+
+		root = getRootPtrPage(tid, dirtypages);
+		Debug.log(0, "root after leaf split: %s", root.getRootId());
 
 		// which leafpage to return
 		if (field.compare(Op.LESS_THAN_OR_EQ, middleTup.getField(keyField)))
@@ -375,6 +381,7 @@ public class BTreeFile implements DbFile {
 		assert dirtypages.containsKey(page.getId());
 		assert dirtypages.containsKey(parentPage.getId());
 
+		root = getRootPtrPage(tid, dirtypages);
 		Debug.log(0, "root after split %s", root.getRootId());
 
 		// which internalpage to return
