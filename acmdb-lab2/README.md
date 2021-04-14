@@ -46,5 +46,5 @@ I believe None.
 
 * Stuck on a weird bug in Exercise 3 for some time. 
 
-  When rootPtr is changed in a insert process, it still remains unchanged when the insertion is completed. Turned out the reason is that I forgot to mark pages dirty in BufferPool and rootPtr page was flushed without commit change.
+  When rootPtr is changed in an insert process, it still remains unchanged when the insertion is completed. Turned out the reason is that I forgot to mark pages dirty in BufferPool and rootPtr page was flushed without committing change.
 
