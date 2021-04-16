@@ -18,7 +18,7 @@ public class Tuple implements Serializable {
 
     private TupleDesc td = null;
     private RecordId rid = null;
-    private ArrayList<Field> fieldAr = null;
+    private Field[] filedAr = null;
 
     /**
      * Create a new tuple with the specified schema (type).
@@ -30,9 +30,7 @@ public class Tuple implements Serializable {
     public Tuple(TupleDesc td) {
         // some code goes here
         this.td = td;
-        this.fieldAr = new ArrayList<>(td.numFields());
-        for (int i = 0; i < td.numFields(); i++)
-            this.fieldAr.add(null);
+        this.filedAr = new Field[td.numFields()];
     }
 
     /**
@@ -73,7 +71,7 @@ public class Tuple implements Serializable {
      */
     public void setField(int i, Field f) {
         // some code goes here
-        this.fieldAr.set(i, f);
+        this.filedAr[i] = f;
     }
 
     /**
@@ -84,7 +82,7 @@ public class Tuple implements Serializable {
      */
     public Field getField(int i) {
         // some code goes here
-        return this.fieldAr.get(i);
+        return this.filedAr[i];
     }
 
     /**
@@ -97,9 +95,8 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // some code goes here
-        List<String> resList = this.fieldAr.stream().map(Field::toString).collect(Collectors.toList());
+        List<String> resList = Arrays.stream(this.filedAr).map(Field::toString).collect(Collectors.toList());
         return String.join("\t", resList);
-//        throw new UnsupportedOperationException("Implement this");
     }
 
     /**
@@ -109,7 +106,7 @@ public class Tuple implements Serializable {
     public Iterator<Field> fields()
     {
         // some code goes here
-        return this.fieldAr.iterator();
+        return Arrays.stream(filedAr).iterator();
     }
 
     /**

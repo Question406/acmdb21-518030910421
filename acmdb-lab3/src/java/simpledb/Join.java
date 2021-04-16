@@ -8,6 +8,10 @@ import java.util.*;
 public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
+    private JoinPredicate joinPredicate;
+    private DbIterator childIt1;
+    private DbIterator childIt2;
+    private TupleDesc tupleDesc;
 
     /**
      * Constructor. Accepts to children to join and the predicate to join them
@@ -22,11 +26,15 @@ public class Join extends Operator {
      */
     public Join(JoinPredicate p, DbIterator child1, DbIterator child2) {
         // some code goes here
+        this.joinPredicate = p;
+        this.childIt1 = child1;
+        this.childIt2 = child2;
+        this.tupleDesc = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public JoinPredicate getJoinPredicate() {
         // some code goes here
-        return null;
+        return joinPredicate;
     }
 
     /**
@@ -36,7 +44,7 @@ public class Join extends Operator {
      * */
     public String getJoinField1Name() {
         // some code goes here
-        return null;
+        return childIt1.getTupleDesc().getFieldName(joinPredicate.getField1());
     }
 
     /**
@@ -46,7 +54,7 @@ public class Join extends Operator {
      * */
     public String getJoinField2Name() {
         // some code goes here
-        return null;
+        return childIt2.getTupleDesc().getFieldName(joinPredicate.getField2());
     }
 
     /**
@@ -55,20 +63,39 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return tupleDesc;
     }
+
+    private Tuple item1;
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+        super.open();
+        childIt1.open();
+        childIt2.open();
+        if (childIt1.hasNext())
+            item1 = childIt1.next();
+        else
+            item1 = null;
     }
 
     public void close() {
         // some code goes here
+        super.close();
+        childIt1.close();
+        childIt2.close();
+        item1 = null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        childIt1.rewind();
+        childIt2.rewind();
+        if (childIt1.hasNext())
+            item1 = childIt1.next();
+        else
+            item1 = null;
     }
 
     /**
@@ -91,18 +118,50 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+        Tuple item2 = null;
+        Tuple resTup = null;
+        if (item1 == null) // item1 is current item in childIt1
+            return null;
+
+        do {
+            // one iteration
+            while (childIt2.hasNext()) {
+                item2 = childIt2.next();
+                if (joinPredicate.filter(item1, item2)) {
+                    // find res line
+                    resTup = new Tuple(this.tupleDesc);
+                    int i = 0, j = 0;
+                    for (i = 0; i < item1.getTupleDesc().numFields(); i++) {
+                        resTup.setField(i, item1.getField(i));
+                    }
+                    for (j = 0; j < item2.getTupleDesc().numFields(); j++) {
+                        resTup.setField(i + j, item2.getField(j));
+                    }
+                    return resTup;
+                }
+            }
+            // next iteration
+            childIt2.rewind();
+            if (childIt1.hasNext())
+                item1 = childIt1.next();
+            else
+                item1 = null;
+        } while (item1 != null);
         return null;
     }
 
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new DbIterator[]{childIt1, childIt2};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
         // some code goes here
+        assert children.length == 2;
+        childIt1 = children[0];
+        childIt2 = children[1];
     }
 
 }

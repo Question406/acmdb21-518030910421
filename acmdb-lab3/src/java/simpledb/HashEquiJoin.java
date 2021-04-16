@@ -8,11 +8,15 @@ import java.util.*;
 public class HashEquiJoin extends Operator {
 
     private static final long serialVersionUID = 1L;
+    private JoinPredicate joinPredicate;
+    private DbIterator childIt1;
+    private DbIterator childIt2;
+    private TupleDesc tupleDesc;
 
     /**
      * Constructor. Accepts to children to join and the predicate to join them
      * on
-     * 
+     *
      * @param p
      *            The predicate to use to join the children
      * @param child1
@@ -22,30 +26,34 @@ public class HashEquiJoin extends Operator {
      */
     public HashEquiJoin(JoinPredicate p, DbIterator child1, DbIterator child2) {
         // some code goes here
+        this.joinPredicate = p;
+        this.childIt1 = child1;
+        this.childIt2 = child2;
+        this.tupleDesc = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public JoinPredicate getJoinPredicate() {
         // some code goes here
-        return null;
+        return joinPredicate;
     }
 
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return tupleDesc;
     }
-    
+
     public String getJoinField1Name()
     {
         // some code goes here
-	return null;
+    	return childIt1.getTupleDesc().getFieldName(joinPredicate.getField1());
     }
 
     public String getJoinField2Name()
     {
         // some code goes here
-        return null;
+        return childIt2.getTupleDesc().getFieldName(joinPredicate.getField2());
     }
-    
+
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
@@ -75,7 +83,7 @@ public class HashEquiJoin extends Operator {
      * <p>
      * For example, if one tuple is {1,2,3} and the other tuple is {1,5,6},
      * joined on equality of the first column, then this returns {1,2,3,1,5,6}.
-     * 
+     *
      * @return The next matching tuple.
      * @see JoinPredicate#filter
      */
@@ -87,12 +95,15 @@ public class HashEquiJoin extends Operator {
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new DbIterator[]{childIt1, childIt2};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
         // some code goes here
+        assert children.length == 2;
+        childIt1 = children[0];
+        childIt2 = children[1];
     }
-    
+
 }
