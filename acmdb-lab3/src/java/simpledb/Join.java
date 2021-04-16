@@ -129,14 +129,7 @@ public class Join extends Operator {
                 item2 = childIt2.next();
                 if (joinPredicate.filter(item1, item2)) {
                     // find res line
-                    resTup = new Tuple(this.tupleDesc);
-                    int i = 0, j = 0;
-                    for (i = 0; i < item1.getTupleDesc().numFields(); i++) {
-                        resTup.setField(i, item1.getField(i));
-                    }
-                    for (j = 0; j < item2.getTupleDesc().numFields(); j++) {
-                        resTup.setField(i + j, item2.getField(j));
-                    }
+                    resTup = Tuple.merge(item1, item2);
                     return resTup;
                 }
             }

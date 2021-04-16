@@ -1,5 +1,7 @@
 package simpledb;
 
+import jdk.jfr.Timestamp;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -116,5 +118,24 @@ public class Tuple implements Serializable {
     {
         // some code goes here
         this.td = td;
+    }
+
+    /**
+     * Merge two tuples into a new tuple
+     * @param t1 the tuple to merge
+     * @param t2 the tuple to merge
+     * @return the new merged tuple
+     */
+    public static Tuple merge(Tuple t1, Tuple t2) {
+        TupleDesc mergedTupDesc = TupleDesc.merge(t1.getTupleDesc(), t2.getTupleDesc());
+        Tuple resTup = new Tuple(mergedTupDesc);
+        int i = 0, j = 0;
+        for (; i < t1.getTupleDesc().numFields(); i++) {
+            resTup.setField(i, t1.getField(i));
+        }
+        for (; j < t2.getTupleDesc().numFields(); j++) {
+            resTup.setField(i + j, t2.getField(j));
+        }
+        return resTup;
     }
 }
