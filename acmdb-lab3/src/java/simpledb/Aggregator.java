@@ -9,6 +9,7 @@ import java.io.Serializable;
 public interface Aggregator extends Serializable {
     static final int NO_GROUPING = -1;
 
+
     /**
      * SUM_COUNT and SC_AVG will
      * only be used in lab7, you are not required
@@ -81,5 +82,12 @@ public interface Aggregator extends Serializable {
      * @see simpledb.TupleIterator for a possible helper
      */
     public DbIterator iterator();
-    
+
+    /**
+     * Return the tuple description of the result in an aggregator
+     *
+     * @return
+     */
+    TupleDesc getTupleDesc();
+
 }

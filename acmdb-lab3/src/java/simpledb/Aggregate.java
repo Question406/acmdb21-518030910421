@@ -10,12 +10,19 @@ import java.util.*;
 public class Aggregate extends Operator {
 
     private static final long serialVersionUID = 1L;
+    private DbIterator childIt;
+    private int afield;
+    private int gfield;
+    private Aggregator.Op aop;
+
+    private Aggregator aggregator;
+    private DbIterator aggregatorIt;
 
     /**
      * Constructor.
      * 
      * Implementation hint: depending on the type of afield, you will want to
-     * construct an {@link IntAggregator} or {@link StringAggregator} to help
+     * construct an {@link IntegerAggregator} or {@link StringAggregator} to help
      * you with your implementation of readNext().
      * 
      * 
@@ -30,7 +37,24 @@ public class Aggregate extends Operator {
      *            The aggregation operator to use
      */
     public Aggregate(DbIterator child, int afield, int gfield, Aggregator.Op aop) {
-	// some code goes here
+	    // some code goes here
+        this.childIt = child;
+        this.afield = afield;
+        this.gfield = gfield;
+        this.aop = aop;
+        this.aggregatorIt = null;
+
+        // only two possible type
+        boolean grouping = (gfield != -1);
+        Type aggregateType = child.getTupleDesc().getFieldType(afield);
+        Type groupType = (grouping) ? child.getTupleDesc().getFieldType(gfield) : null;
+
+        if (aggregateType == Type.INT_TYPE)
+            this.aggregator = new IntegerAggregator(gfield, groupType, afield, aop);
+        else if (aggregateType == Type.STRING_TYPE)
+            this.aggregator = new StringAggregator(gfield, groupType, afield, aop);
+        else
+            throw new IllegalArgumentException("@Aggragte Constructor");
     }
 
     /**
@@ -39,8 +63,8 @@ public class Aggregate extends Operator {
      *         {@link simpledb.Aggregator#NO_GROUPING}
      * */
     public int groupField() {
-	// some code goes here
-	return -1;
+        // some code goes here
+    	return gfield;
     }
 
     /**
@@ -49,16 +73,19 @@ public class Aggregate extends Operator {
      *         null;
      * */
     public String groupFieldName() {
-	// some code goes here
-	return null;
+	    // some code goes here
+        if (gfield == -1)
+            return null;
+        else
+	        return childIt.getTupleDesc().getFieldName(gfield);
     }
 
     /**
      * @return the aggregate field
      * */
     public int aggregateField() {
-	// some code goes here
-	return -1;
+    	// some code goes here
+    	return afield;
     }
 
     /**
@@ -66,25 +93,35 @@ public class Aggregate extends Operator {
      *         tuples
      * */
     public String aggregateFieldName() {
-	// some code goes here
-	return null;
+    	// some code goes here
+        return childIt.getTupleDesc().getFieldName(afield);
     }
 
     /**
      * @return return the aggregate operator
      * */
     public Aggregator.Op aggregateOp() {
-	// some code goes here
-	return null;
+    	// some code goes here
+    	return aop;
     }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
-	return aop.toString();
+    	return aop.toString();
     }
 
     public void open() throws NoSuchElementException, DbException,
 	    TransactionAbortedException {
-	// some code goes here
+    	// some code goes here
+        super.open();
+        childIt.open();
+        // create aggregator iterator
+        while (childIt.hasNext()) {
+            Tuple item = childIt.next();
+            aggregator.mergeTupleIntoGroup(item);
+        }
+        childIt.close();
+        aggregatorIt = aggregator.iterator();
+        aggregatorIt.open();
     }
 
     /**
@@ -95,12 +132,16 @@ public class Aggregate extends Operator {
      * aggregate. Should return null if there are no more tuples.
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-	// some code goes here
-	return null;
+    	// some code goes here
+        if (aggregatorIt.hasNext())
+            return aggregatorIt.next();
+        else
+            return null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-	// some code goes here
+	    // some code goes here
+        aggregatorIt.rewind();
     }
 
     /**
@@ -115,23 +156,28 @@ public class Aggregate extends Operator {
      * iterator.
      */
     public TupleDesc getTupleDesc() {
-	// some code goes here
-	return null;
+	    // some code goes here
+    	return aggregator.getTupleDesc();
     }
 
     public void close() {
-	// some code goes here
+    	// some code goes here
+        aggregatorIt.close();
+        super.close();
     }
 
     @Override
     public DbIterator[] getChildren() {
-	// some code goes here
-	return null;
+    	// some code goes here
+        assert aggregatorIt != null;
+    	return new DbIterator[]{aggregatorIt};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-	// some code goes here
+    	// some code goes here
+        assert children.length == 1;
+        childIt = children[0];
     }
     
 }
