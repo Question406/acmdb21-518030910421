@@ -32,7 +32,6 @@ public class HeapFile implements DbFile {
         this.file = f;
         this.td = td;
         this.fileID = f.getAbsoluteFile().hashCode();
-        this.noPg = (int) Math.ceil((double) f.length() / BufferPool.getPageSize());
     }
 
     /**
@@ -97,6 +96,12 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        // write page to disk
+        PageId pid = page.getId();
+		RandomAccessFile rf = new RandomAccessFile(file, "rw");
+		rf.seek(pid.pageNumber() * BufferPool.getPageSize());
+		rf.write(page.getPageData(), 0, BufferPool.getPageSize());
+		rf.close();
     }
 
     /**
@@ -104,6 +109,7 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
+        noPg = (int) Math.ceil((double) file.length() / BufferPool.getPageSize());
         return noPg;
     }
 
@@ -118,7 +124,7 @@ public class HeapFile implements DbFile {
         HeapPage page = null;
         for (int i = 0; i < numPages(); i++) {
             PageId pid = new HeapPageId(getId(), i);
-            page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
+            page = (HeapPage) getPage(tid, pid, Permissions.READ_ONLY);
             if (page.getNumEmptySlots() != 0) {
                 toInsPgNo = i;
                 break;
@@ -127,16 +133,13 @@ public class HeapFile implements DbFile {
         if (toInsPgNo != -1) {
             // there is a page with empty slot
             PageId pid = new HeapPageId(getId(), toInsPgNo);
-            page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
-            page.insertTuple(t);
-            page.markDirty(true, tid);
+            page = (HeapPage) getPage(tid, pid, Permissions.READ_WRITE);
         } else {
             // a new page needed
-            page = new HeapPage(new HeapPageId(getId(), ));
-            page.insertTuple(t);
-            page.markDirty(true, tid);
-            writePage(page);
+            page = (HeapPage) getEmptyPage(tid);
         }
+        page.insertTuple(t);
+        page.markDirty(true, tid);
         assert page != null;
         return new ArrayList<>(Collections.singletonList(page));
     }
@@ -244,39 +247,23 @@ public class HeapFile implements DbFile {
         }
     }
 
-    /**
-	 * Method to encapsulate the process of creating a new page.  It reuses old pages if possible,
-	 * and creates a new page if none are available.  It wipes the page on disk and in the cache and
-	 * returns a clean copy locked with read-write permission
-	 *
-	 * @param tid - the transaction id
-	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
-	 * @param pgcateg - the BTreePageId category of the new page.  Either LEAF, INTERNAL, or HEADER
-	 * @return the new empty page
-	 * @see #getEmptyPageNo(TransactionId, HashMap)
-	 * @see #setEmptyPage(TransactionId, HashMap, int)
-	 *
-	 * @throws DbException
-	 * @throws IOException
-	 * @throws TransactionAbortedException
-	 */
-	private Page getEmptyPage(TransactionId tid, HashMap<PageId, Page> dirtypages, int pgcateg)
+    Page getPage(TransactionId tid, PageId pid, Permissions perm)
+			throws DbException, TransactionAbortedException {
+        Page p = Database.getBufferPool().getPage(tid, pid, perm);
+		return p;
+	}
+
+    private Page getEmptyPage(TransactionId tid)
 			throws DbException, IOException, TransactionAbortedException {
 		// create the new page
-		int emptyPageNo = getEmptyPageNo(tid, dirtypages);
-		BTreePageId newPageId = new BTreePageId(tableid, emptyPageNo, pgcateg);
+		int emptyPageNo = numPages();
+        HeapPageId pid = new HeapPageId(getId(), emptyPageNo);
+        HeapPage newPage = new HeapPage(pid, HeapPage.createEmptyPageData());
 
-		// write empty page to disk
-		RandomAccessFile rf = new RandomAccessFile(f, "rw");
-		rf.seek(BTreeRootPtrPage.getPageSize() + (emptyPageNo-1) * BufferPool.getPageSize());
-		rf.write(BTreePage.createEmptyPageData());
-		rf.close();
-
+        writePage(newPage);
 		// make sure the page is not in the buffer pool	or in the local cache
-		Database.getBufferPool().discardPage(newPageId);
-		dirtypages.remove(newPageId);
-
-		return getPage(tid, dirtypages, newPageId, Permissions.READ_WRITE);
+		Database.getBufferPool().discardPage(newPage.getId());
+		return getPage(tid, pid, Permissions.READ_WRITE);
 	}
 
 }
