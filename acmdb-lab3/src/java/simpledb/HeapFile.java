@@ -111,16 +111,47 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+        if (! t.getTupleDesc().equals(td))
+            throw new DbException("@HeapFile insertTuple, try to insert incorrect tupleDesc");
+        // find page with empty slot
+        int toInsPgNo = -1;
+        HeapPage page = null;
+        for (int i = 0; i < numPages(); i++) {
+            PageId pid = new HeapPageId(getId(), i);
+            page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
+            if (page.getNumEmptySlots() != 0) {
+                toInsPgNo = i;
+                break;
+            }
+        }
+        if (toInsPgNo != -1) {
+            // there is a page with empty slot
+            PageId pid = new HeapPageId(getId(), toInsPgNo);
+            page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+            page.insertTuple(t);
+            page.markDirty(true, tid);
+        } else {
+            // a new page needed
+            page = new HeapPage(new HeapPageId(getId(), ));
+            page.insertTuple(t);
+            page.markDirty(true, tid);
+            writePage(page);
+        }
+        assert page != null;
+        return new ArrayList<>(Collections.singletonList(page));
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+        RecordId recordId = t.getRecordId();
+        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, recordId.getPageId(), Permissions.READ_WRITE);
+        // only one modified
+        page.deleteTuple(t);
+        // mark dirty
+        page.markDirty(true, tid);
+        return new ArrayList<Page>(Collections.singletonList(page));
     }
 
     // see DbFile.java for javadocs
@@ -212,6 +243,41 @@ public class HeapFile implements DbFile {
             tpIt = null;
         }
     }
+
+    /**
+	 * Method to encapsulate the process of creating a new page.  It reuses old pages if possible,
+	 * and creates a new page if none are available.  It wipes the page on disk and in the cache and
+	 * returns a clean copy locked with read-write permission
+	 *
+	 * @param tid - the transaction id
+	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
+	 * @param pgcateg - the BTreePageId category of the new page.  Either LEAF, INTERNAL, or HEADER
+	 * @return the new empty page
+	 * @see #getEmptyPageNo(TransactionId, HashMap)
+	 * @see #setEmptyPage(TransactionId, HashMap, int)
+	 *
+	 * @throws DbException
+	 * @throws IOException
+	 * @throws TransactionAbortedException
+	 */
+	private Page getEmptyPage(TransactionId tid, HashMap<PageId, Page> dirtypages, int pgcateg)
+			throws DbException, IOException, TransactionAbortedException {
+		// create the new page
+		int emptyPageNo = getEmptyPageNo(tid, dirtypages);
+		BTreePageId newPageId = new BTreePageId(tableid, emptyPageNo, pgcateg);
+
+		// write empty page to disk
+		RandomAccessFile rf = new RandomAccessFile(f, "rw");
+		rf.seek(BTreeRootPtrPage.getPageSize() + (emptyPageNo-1) * BufferPool.getPageSize());
+		rf.write(BTreePage.createEmptyPageData());
+		rf.close();
+
+		// make sure the page is not in the buffer pool	or in the local cache
+		Database.getBufferPool().discardPage(newPageId);
+		dirtypages.remove(newPageId);
+
+		return getPage(tid, dirtypages, newPageId, Permissions.READ_WRITE);
+	}
 
 }
 
