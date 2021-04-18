@@ -175,7 +175,11 @@ public class BufferPool {
         // not necessary for lab1
         DbFile toAddtable = Database.getCatalog().getDatabaseFile(tableId);
         ArrayList<Page> dirtyPages = toAddtable.insertTuple(tid, t);
-        dirtyPages.forEach(dirtyPage -> dirtyPage.markDirty(true, tid));
+        for (Page dirtyPage : dirtyPages) {
+            dirtyPage.markDirty(true, tid);
+            // this page may not be in bufferPool, from BufferPoolWriteTest
+            addPage(tid, dirtyPage);
+        }
     }
 
     /**
@@ -197,7 +201,11 @@ public class BufferPool {
         // not necessary for lab1
         DbFile toDelTable = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
         ArrayList<Page> dirtyPages = toDelTable.deleteTuple(tid, t);
-        dirtyPages.forEach(dirtyPage -> dirtyPage.markDirty(true, tid));
+        for (Page dirtyPage : dirtyPages) {
+            dirtyPage.markDirty(true, tid);
+            // this page may not be in bufferPool, from BufferPoolWriteTest
+            addPage(tid, dirtyPage);
+        }
     }
 
 
@@ -264,7 +272,34 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        for (PageId toFlush : pageid2ind.keySet()){
+            flushPage(toFlush);
+        }
     }
+
+    /**
+     * Put those pages not created in bufferPool into it
+     * @param tid tranactionid
+     * @param page the page to put in
+     * @throws IOException
+     */
+    private synchronized void addPage(TransactionId tid, Page page) throws IOException, DbException {
+        PageId pid = page.getId();
+        if (! pageid2ind.containsKey(pid)) {
+            if (pageid2ind.size() == numPages)
+                evictPage();
+            // get empty index
+            int emptyInd = empty.nextSetBit(0);
+            assert (emptyInd >= 0 && emptyInd < numPages); // after evict, must have one empty slot
+
+            pages[emptyInd] = page;
+            pageid2ind.put(pid, emptyInd);
+            empty.clear(emptyInd); // nonemtpy
+            dirty.set(emptyInd);
+            LRUList.addLast(pid);  // LRU last
+        }
+    }
+
 
     /**
      * Discards a page from the buffer pool.

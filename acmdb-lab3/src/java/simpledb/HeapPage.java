@@ -279,7 +279,7 @@ public class HeapPage implements Page {
 
 		// find the first empty slot
 		int emptySlot = -1;
-		for (int i=0; i<numSlots; i++) {
+		for (int i=0; i<getNumTuples(); i++) {
 			if (!isSlotUsed(i)) {
 				emptySlot = i;
 				break;
@@ -290,11 +290,11 @@ public class HeapPage implements Page {
 
 		// heap page doesn't need to keep order
 		// insert new record into the correct spot
-		markSlotUsed(emptySlot, true);
-		Debug.log(1, "HeapPage.insertTuple: new tuple, tableId = %d pageId = %d slotId = %d", pid.getTableId(), pid.pageNumber(), emptySlot);
 		RecordId rid = new RecordId(pid, emptySlot);
 		t.setRecordId(rid);
 		tuples[emptySlot] = t;
+        markSlotUsed(emptySlot, true);
+        Debug.log(1, "HeapPage.insertTuple: new tuple, tableId = %d pageId = %d slotId = %d", pid.getTableId(), pid.pageNumber(), emptySlot);
     }
 
     /**
