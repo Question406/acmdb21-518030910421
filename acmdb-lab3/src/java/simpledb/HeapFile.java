@@ -139,7 +139,7 @@ public class HeapFile implements DbFile {
             page = (HeapPage) getEmptyPage(tid);
         }
         page.insertTuple(t);
-        page.markDirty(true, tid);
+//        page.markDirty(true, tid); // marked dirty at BufferPool
         assert page != null;
         return new ArrayList<>(Collections.singletonList(page));
     }
@@ -152,8 +152,8 @@ public class HeapFile implements DbFile {
         HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, recordId.getPageId(), Permissions.READ_WRITE);
         // only one modified
         page.deleteTuple(t);
-        // mark dirty
-        page.markDirty(true, tid);
+//         mark dirty
+//        page.markDirty(true, tid);
         return new ArrayList<Page>(Collections.singletonList(page));
     }
 
