@@ -80,33 +80,41 @@ public class IntegerAggregator implements Aggregator {
             curCnt = groupCnt.get(groupKey);
             toPut = ((IntField) tup.getField(afield)).getValue();
             switch (what) {
-                case MIN -> {
+                case MIN : {
                     toPut = (curRes == null) ? toPut : Math.min(curRes, toPut);
                     groupRes.put(groupKey, toPut);
+                    break;
                 }
-                case MAX -> {
+                case MAX : {
                     toPut = (curRes == null) ? toPut : Math.max(curRes, toPut);
                     groupRes.put(groupKey, toPut);
+                    break;
                 }
-                case SUM -> {
+                case SUM : {
                     toPut = (curRes == null) ? toPut : curRes + toPut;
                     groupRes.put(groupKey, toPut);
+                    break;
                 }
-                case AVG -> {
+                case AVG : {
                     toPut = (curRes == null) ? toPut : curRes + toPut;
                     groupRes.put(groupKey, toPut);
                     toPut = (curCnt == null) ? 1 : curCnt + 1;
                     groupCnt.put(groupKey, toPut);
+                    break;
                 }
-                case COUNT -> {
+                case COUNT : {
                     toPut = (curCnt == null) ? 1 : curCnt + 1;
                     groupCnt.put(groupKey, toPut);
+                    break;
                 }
-                case SUM_COUNT -> {
+                case SUM_COUNT : {
                     throw new IllegalArgumentException("@IntegerAggregator, not imlemented operator");
                 }
-                case SC_AVG -> {
+                case SC_AVG : {
                     throw new IllegalArgumentException("@IntegerAggregator, not imlemented operator");
+                }
+                default : {
+                    throw new IllegalArgumentException("@IntegerAggregator, unkonwn operator");
                 }
             };
         }
