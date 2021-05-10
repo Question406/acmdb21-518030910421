@@ -12,8 +12,7 @@ public class StringHistogram {
      * <p>
      * Our implementation is written in terms of an IntHistogram by converting
      * each String to an integer.
-     * 
-     * @param buckets
+     * * @param buckets
      *            the number of buckets
      */
     public StringHistogram(int buckets) {

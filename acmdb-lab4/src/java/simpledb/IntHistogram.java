@@ -1,9 +1,14 @@
 package simpledb;
 
+
+import static java.lang.Math.min;
+
 /** A class to represent a fixed-width histogram over a single integer-based field.
  */
 public class IntHistogram {
 
+    private int minInt, maxInt, width, bucketNum, numAll;
+    private int[] bucketCnt; // only the last bucket may be less than width
     /**
      * Create a new IntHistogram.
      * 
@@ -22,6 +27,12 @@ public class IntHistogram {
      */
     public IntHistogram(int buckets, int min, int max) {
     	// some code goes here
+        this.numAll = 0;
+        this.minInt = min;
+        this.maxInt = max;
+        this.bucketNum = buckets;
+        this.bucketCnt = new int[buckets];
+        this.width = (max - min + 1) / buckets;
     }
 
     /**
@@ -30,6 +41,9 @@ public class IntHistogram {
      */
     public void addValue(int v) {
     	// some code goes here
+        int ind = min((v - this.minInt) / this.width, this.bucketNum - 1);
+        ++bucketCnt[ind];
+        ++numAll;
     }
 
     /**
@@ -43,8 +57,43 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-
     	// some code goes here
+        double res = 0.;
+        if (v < minInt || v > maxInt) {
+            switch (op) {
+                case EQUALS:
+                    return 0.0;
+                case NOT_EQUALS:
+                    return 1.0;
+                case LESS_THAN:
+                case LESS_THAN_OR_EQ:
+                    return (v < minInt) ? 0.0 : 1.0;
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQ:
+                    return (v > maxInt) ? 0.0 : 1.0;
+            }
+        }
+
+        int ind = min((v - minInt) / width, bucketNum - 1);
+        switch (op) {
+            case EQUALS:
+                break;
+
+            case GREATER_THAN:
+                break;
+            case LESS_THAN:
+                break;
+            case LESS_THAN_OR_EQ :
+                break;
+            case GREATER_THAN_OR_EQ:
+                break;
+            case LIKE:
+                break;
+            case NOT_EQUALS:
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + op);
+        }
         return -1.0;
     }
     
