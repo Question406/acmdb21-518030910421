@@ -16,7 +16,7 @@ public class Join extends Operator {
     /**
      * Constructor. Accepts to children to join and the predicate to join them
      * on
-     * 
+     *
      * @param p
      *            The predicate to use to join the children
      * @param child1
@@ -30,6 +30,7 @@ public class Join extends Operator {
         this.childIt1 = child1;
         this.childIt2 = child2;
         this.tupleDesc = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
+        this.item1 = null;
     }
 
     public JoinPredicate getJoinPredicate() {
@@ -74,28 +75,22 @@ public class Join extends Operator {
         super.open();
         childIt1.open();
         childIt2.open();
-        if (childIt1.hasNext())
-            item1 = childIt1.next();
-        else
-            item1 = null;
+        item1 = null;
     }
 
     public void close() {
         // some code goes here
-        super.close();
         childIt1.close();
         childIt2.close();
         item1 = null;
+        super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
         childIt1.rewind();
         childIt2.rewind();
-        if (childIt1.hasNext())
-            item1 = childIt1.next();
-        else
-            item1 = null;
+        item1 = null;
     }
 
     /**
@@ -112,34 +107,53 @@ public class Join extends Operator {
      * <p>
      * For example, if one tuple is {1,2,3} and the other tuple is {1,5,6},
      * joined on equality of the first column, then this returns {1,2,3,1,5,6}.
-     * 
+     *
      * @return The next matching tuple.
      * @see JoinPredicate#filter
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+//        Tuple item2 = null;
+//        Tuple resTup = null;
+//        if (item1 == null) // item1 is current item in childIt1
+//            return null;
+//
+//        do {
+//            // one iteration
+//            while (childIt2.hasNext()) {
+//                item2 = childIt2.next();
+//                if (joinPredicate.filter(item1, item2)) {
+//                    // find res line
+//                    resTup = Tuple.merge(item1, item2);
+//                    return resTup;
+//                }
+//            }
+//            // next iteration
+//            childIt2.rewind();
+//            if (childIt1.hasNext())
+//                item1 = childIt1.next();
+//            else {
+//                item1 = null;
+//                return null;
+//            }
+////                item1 = null;
+//        } while (item1 != null);
+//        return null;
         Tuple item2 = null;
-        Tuple resTup = null;
-        if (item1 == null) // item1 is current item in childIt1
-            return null;
-
-        do {
-            // one iteration
+        if (item1 == null && childIt1.hasNext())
+            item1 = childIt1.next();
+        while (item1 != null) {
             while (childIt2.hasNext()) {
                 item2 = childIt2.next();
-                if (joinPredicate.filter(item1, item2)) {
-                    // find res line
-                    resTup = Tuple.merge(item1, item2);
-                    return resTup;
-                }
+                if (joinPredicate.filter(item1, item2))
+                    return Tuple.merge(item1, item2);
             }
-            // next iteration
-            childIt2.rewind();
             if (childIt1.hasNext())
                 item1 = childIt1.next();
             else
-                item1 = null;
-        } while (item1 != null);
+                break;
+            childIt2.rewind();
+        }
         return null;
     }
 
