@@ -5,6 +5,9 @@ import java.util.*;
 import javax.swing.*;
 import javax.swing.tree.*;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 /**
  * The JoinOptimizer class is responsible for ordering a series of joins
  * optimally, and for selecting the best instantiation of a join for a given
@@ -85,8 +88,6 @@ public class JoinOptimizer {
      * 
      * 
      * @param j
-     *            A LogicalJoinNode representing the join operation being
-     *            performed.
      * @param card1
      *            Estimated cardinality of the left-hand side of the query
      * @param card2
@@ -111,7 +112,12 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return -1.0;
+            if (j.p.equals(Predicate.Op.EQUALS))
+                // using HashEquiJoin
+                return cost1 + cost2 + card1 * card2;
+            else
+                // normal nested join
+                return  cost1 + cost1 * card2 + card1 * card2;
         }
     }
 
@@ -157,7 +163,29 @@ public class JoinOptimizer {
             Map<String, Integer> tableAliasToId) {
         int card = 1;
         // some code goes here
-        return card <= 0 ? 1 : card;
+        if (joinOp == Predicate.Op.EQUALS) { // equal join
+            // has primary key
+            if (t1pkey && t2pkey)  // both have primary key, the number of tuples produced by the join cannot be larger than the cardinality of the non-primary key attribute.
+                return min(card1, card2);
+            else if (t1pkey) // single primary key
+                return card2;
+            else if (t2pkey)
+                return card1;
+            else // no primary key, make up a simple heuristic (say, the size of the larger of the two tables
+                return max(card1, card2);
+        }
+        else if (joinOp == Predicate.Op.NOT_EQUALS) { // card1 * card2 - cost of (EQUALS join)
+            if (t1pkey && t2pkey)
+                return card1 * card2 - min(card1, card2);
+            else if (t1pkey)
+                return card1 * card2 - card2;
+            else if (t2pkey)
+                return card1 * card2 - card1;
+            else
+                return card1 * card2 - max(card1, card2);
+        }
+        else // range scan, proportional to card1 * card2, fine to assume that a fixed fraction of the cross-product is emitted by range scans (say, 30%).
+            return (3 * card1 * card2 / 10);
     }
 
     /**
