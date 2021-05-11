@@ -87,12 +87,12 @@ public class IntHistogram {
                 return (height * 1.) / (right - left + 1) / numAll;
             case GREATER_THAN:
                 res = (1. * (right - v) / width) * (1. * height / numAll);
-                for (; ind < bucketNum; ++ind)
+                for (ind = ind + 1; ind < bucketNum; ++ind)
                     res += 1. * bucketCnt[ind] / numAll;
                 return res;
             case LESS_THAN:
                 res = (1. * (v - left) / width) * (1. * height / numAll);
-                for (; ind >= 0; --ind)
+                for (ind = ind - 1; ind >= 0; --ind)
                     res += 1. * bucketCnt[ind] / numAll;
                 return res;
             case LESS_THAN_OR_EQ :

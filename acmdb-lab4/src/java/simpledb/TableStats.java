@@ -1,5 +1,6 @@
 package simpledb;
 
+import javax.swing.*;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -71,7 +72,7 @@ public class TableStats {
     private int ioCostPerPage;
     private int ntups;
     private TupleDesc tupleDesc;
-    private Hashtable<Integer, Object> histogram;
+    private HashMap<Integer, Object> histograms; // field id -> histogram(IntHistogram or StringHistogram)
 
     /**
      * Create a new TableStats object, that keeps track of statistics on each
@@ -95,6 +96,70 @@ public class TableStats {
         this.tableid = tableid;
         this.ioCostPerPage = ioCostPerPage;
         this.tupleDesc = Database.getCatalog().getTupleDesc(this.tableid);
+        this.histograms = new HashMap<>();
+
+        // initialize
+        HashMap<Integer, Integer> maxInts = new HashMap<>(); // used to store int maxInt, minInt
+        HashMap<Integer, Integer> minInts = new HashMap<>();
+
+        // iterate through the table to collect statistics
+        DbFileIterator dbFileIterator = Database.getCatalog().getDatabaseFile(tableid).iterator(new TransactionId());
+        try {
+            dbFileIterator.open();
+            Tuple curTup;
+            while (dbFileIterator.hasNext()) {
+                curTup = dbFileIterator.next();
+                ++ntups; // update num tuples
+                // count min, max for int histogram
+                for (int i = 0; i < tupleDesc.numFields(); ++i) {
+                    if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                        int val = ((IntField) curTup.getField(i)).getValue();
+                        if (maxInts.containsKey(i)) {
+                            // update
+                            if (val < minInts.get(i))
+                                minInts.replace(i, val);
+                            if (val > maxInts.get(i))
+                                maxInts.replace(i, val);
+                        } else {
+                             // put into it
+                             minInts.put(i, val);
+                             maxInts.put(i, val);
+                        }
+                    }
+                }
+            }
+            dbFileIterator.rewind();
+            // create histograms for each column
+            for (int i = 0; i < tupleDesc.numFields(); ++i)
+                if (maxInts.containsKey(i))
+                    // create IntHistogram
+                    histograms.put(i, new IntHistogram(TableStats.NUM_HIST_BINS, minInts.get(i), maxInts.get(i)));
+                else
+                    // create StringHistogram
+                    histograms.put(i, new StringHistogram(TableStats.NUM_HIST_BINS));
+
+
+            while (dbFileIterator.hasNext()) {
+                curTup = dbFileIterator.next();
+                for (int i = 0; i < tupleDesc.numFields(); ++i) {
+                    if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                        int val = ((IntField) curTup.getField(i)).getValue();
+                        assert (histograms.get(i) instanceof IntHistogram);
+                        ((IntHistogram) histograms.get(i)).addValue(val);
+                    } else if (tupleDesc.getFieldType(i) == Type.STRING_TYPE){
+                        String val = ((StringField) curTup.getField(i)).getValue();
+                        assert (histograms.get(i) instanceof StringHistogram);
+                        ((StringHistogram) histograms.get(i)).addValue(val);
+                    } else
+                        throw new IllegalArgumentException("@TableStats");
+                }
+            }
+
+        } catch (DbException e) {
+            e.printStackTrace();
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+        }
 
     }
 
@@ -126,7 +191,7 @@ public class TableStats {
      */
     public int estimateTableCardinality(double selectivityFactor) {
         // some code goes here
-        return 0;
+        return (int) Math.ceil(totalTuples() * selectivityFactor);
     }
 
     /**
@@ -159,7 +224,20 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
-        return 1.0;
+        if (histograms.containsKey(field)) {
+            Object histogram = histograms.get(field);
+            if (histogram instanceof IntHistogram) {
+                IntHistogram intHistogram = (IntHistogram) histogram;
+                return intHistogram.estimateSelectivity(op, ((IntField)constant).getValue());
+            }
+            if (histogram instanceof StringHistogram) {
+                StringHistogram stringHistogram = (StringHistogram) histogram;
+                return stringHistogram.estimateSelectivity(op, ((StringField) constant).getValue());
+            }
+        }
+        else
+            throw new RuntimeException("@estimateSlectivity, illegal field");
+        return 0.;
     }
 
     /**
