@@ -11,4 +11,10 @@ public class CostCard {
     public int card;
     /** The optimal subplan */
     public Vector<LogicalJoinNode> plan;
+
+    public CostCard() {
+        this.cost = Double.MAX_VALUE;
+        this.card = 0;
+        this.plan = null;
+    }
 }

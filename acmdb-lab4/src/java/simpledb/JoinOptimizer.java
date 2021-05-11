@@ -5,8 +5,7 @@ import java.util.*;
 import javax.swing.*;
 import javax.swing.tree.*;
 
-import static java.lang.Math.max;
-import static java.lang.Math.min;
+import static java.lang.Math.*;
 
 /**
  * The JoinOptimizer class is responsible for ordering a series of joins
@@ -16,6 +15,7 @@ import static java.lang.Math.min;
 public class JoinOptimizer {
     LogicalPlan p;
     Vector<LogicalJoinNode> joins;
+    PlanCache planCaChe;
 
     /**
      * Constructor
@@ -28,6 +28,7 @@ public class JoinOptimizer {
     public JoinOptimizer(LogicalPlan p, Vector<LogicalJoinNode> joins) {
         this.p = p;
         this.joins = joins;
+        this.planCaChe = new PlanCache();
     }
 
     /**
@@ -249,7 +250,31 @@ public class JoinOptimizer {
 
         // some code goes here
         //Replace the following
-        return joins;
+        for (int i = 0; i <= joins.size(); ++i) {
+            Set<Set<LogicalJoinNode>> subsets = enumerateSubsets(joins, i);
+            Iterator<Set<LogicalJoinNode>> subsetIter = subsets.iterator();
+            while (subsetIter.hasNext()) {
+                Set<LogicalJoinNode> curSubset = subsetIter.next();
+
+                // find optimal order for curSubSet
+                CostCard bestCostCard = new CostCard();
+                for (LogicalJoinNode toRMJoin : curSubset) {
+                    CostCard curCostCard = computeCostAndCardOfSubplan(stats, filterSelectivities, toRMJoin, curSubset, bestCostCard.cost, planCaChe);
+                    if (curCostCard == null) // no suitable plan
+                        continue;
+                    if (curCostCard.cost < bestCostCard.cost) {
+                        bestCostCard = curCostCard;
+                    }
+                }
+                planCaChe.addPlan(curSubset, bestCostCard);
+            }
+        }
+        Vector<LogicalJoinNode> res = planCaChe.getOrder(new HashSet<LogicalJoinNode>(this.joins));
+        if (explain) {
+            System.out.println("Here comes an explanation for Join order");
+            printJoins(res, planCaChe, stats, filterSelectivities);
+        }
+        return res;
     }
 
     // ===================== Private Methods =================================
