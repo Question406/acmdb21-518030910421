@@ -1112,6 +1112,7 @@ javax.swing.tree.DefaultMutableTreeNode
 javax.swing.JScrollPane
 simpledb.Predicate$Op
 simpledb.JoinOptimizer
+simpledb.HashEquiJoin
 javax.swing.JLabel
 java.lang.Object
 java.lang.invoke.StringConcatFactory

@@ -113,32 +113,6 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-//        Tuple item2 = null;
-//        Tuple resTup = null;
-//        if (item1 == null) // item1 is current item in childIt1
-//            return null;
-//
-//        do {
-//            // one iteration
-//            while (childIt2.hasNext()) {
-//                item2 = childIt2.next();
-//                if (joinPredicate.filter(item1, item2)) {
-//                    // find res line
-//                    resTup = Tuple.merge(item1, item2);
-//                    return resTup;
-//                }
-//            }
-//            // next iteration
-//            childIt2.rewind();
-//            if (childIt1.hasNext())
-//                item1 = childIt1.next();
-//            else {
-//                item1 = null;
-//                return null;
-//            }
-////                item1 = null;
-//        } while (item1 != null);
-//        return null;
         Tuple item2 = null;
         if (item1 == null && childIt1.hasNext())
             item1 = childIt1.next();
