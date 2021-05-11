@@ -1,6 +1,7 @@
 package simpledb;
 
 
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 /** A class to represent a fixed-width histogram over a single integer-based field.
@@ -30,9 +31,13 @@ public class IntHistogram {
         this.numAll = 0;
         this.minInt = min;
         this.maxInt = max;
-        this.bucketNum = buckets;
+        this.bucketNum = min(buckets, max - min + 1);
         this.bucketCnt = new int[buckets];
-        this.width = (max - min + 1) / buckets;
+        this.width = ((max - min + 1) / this.bucketNum);
+    }
+
+    private int getInd(int v){
+        return  min((v - this.minInt) / this.width, this.bucketNum - 1);
     }
 
     /**
@@ -41,8 +46,7 @@ public class IntHistogram {
      */
     public void addValue(int v) {
     	// some code goes here
-        int ind = min((v - this.minInt) / this.width, this.bucketNum - 1);
-        ++bucketCnt[ind];
+        ++bucketCnt[getInd(v)];
         ++numAll;
     }
 
@@ -58,7 +62,6 @@ public class IntHistogram {
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
     	// some code goes here
-        double res = 0.;
         if (v < minInt || v > maxInt) {
             switch (op) {
                 case EQUALS:
@@ -74,27 +77,33 @@ public class IntHistogram {
             }
         }
 
-        int ind = min((v - minInt) / width, bucketNum - 1);
+        int ind = getInd(v);
+        int height = bucketCnt[ind];
+        double res = 0.;
+        int left = max(minInt + ind * width, minInt);
+        int right = min(minInt + ind * width + width - 1, maxInt);
         switch (op) {
             case EQUALS:
-                break;
-
+                return (height * 1.) / (right - left + 1) / numAll;
             case GREATER_THAN:
-                break;
+                res = (1. * (right - v) / width) * (1. * height / numAll);
+                for (; ind < bucketNum; ++ind)
+                    res += 1. * bucketCnt[ind] / numAll;
+                return res;
             case LESS_THAN:
-                break;
+                res = (1. * (v - left) / width) * (1. * height / numAll);
+                for (; ind >= 0; --ind)
+                    res += 1. * bucketCnt[ind] / numAll;
+                return res;
             case LESS_THAN_OR_EQ :
-                break;
+                return estimateSelectivity(Predicate.Op.LESS_THAN, v) + estimateSelectivity(Predicate.Op.EQUALS, v);
             case GREATER_THAN_OR_EQ:
-                break;
-            case LIKE:
-                break;
+                return estimateSelectivity(Predicate.Op.GREATER_THAN, v) + estimateSelectivity(Predicate.Op.EQUALS, v);
             case NOT_EQUALS:
-                break;
+                return 1 - estimateSelectivity(Predicate.Op.EQUALS, v);
             default:
                 throw new IllegalStateException("Unexpected value: " + op);
         }
-        return -1.0;
     }
     
     /**
@@ -116,6 +125,13 @@ public class IntHistogram {
      */
     public String toString() {
         // some code goes here
-        return null;
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("IntHistogram: \n");
+        stringBuilder.append(String.format("Min: {} \t Max: {} \t Buckets: {}\n", minInt, maxInt, bucketNum));
+        for (int i = 0; i < bucketNum; i++)
+        {
+            stringBuilder.append(bucketCnt[i]).append("\t");
+        }
+        return stringBuilder.toString();
     }
 }
