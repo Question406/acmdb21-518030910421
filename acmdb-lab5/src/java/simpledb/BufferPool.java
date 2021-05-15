@@ -27,6 +27,7 @@ public class BufferPool {
     private LinkedList<PageId> LRUList = null; // first is the least recent used element
     private BitSet dirty = null; // use bitmap to mark which slot is dirty
     private BitSet empty = null; // use bitmap to mark which slot is empty
+    private LockManager lockManager;
 
 
     /** Default number of pages passed to the constructor. This is used by
@@ -48,6 +49,7 @@ public class BufferPool {
         this.empty.flip(0, numPages); // set all to empty
         this.pageid2ind = new HashMap<>();
         this.LRUList = new LinkedList<>();
+        this.lockManager = new LockManager();
     }
     
     public static int getPageSize() {
