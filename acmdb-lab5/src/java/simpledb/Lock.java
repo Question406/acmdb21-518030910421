@@ -21,6 +21,10 @@ public class Lock {
         this.exclusiveLock = null;
     }
 
+    public boolean is_exclusive() {
+        return lockType == LockType.EXCLUSIVE;
+    }
+
     public boolean acquire_lock(Permissions perm, TransactionId tid) {
         if (perm.equals(Permissions.READ_ONLY)) {
             if (exclusiveLock != null) {

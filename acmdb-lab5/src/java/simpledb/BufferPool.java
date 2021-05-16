@@ -138,6 +138,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        transactionComplete(tid, true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -158,6 +159,30 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        HashSet<PageId> lockedPages = lockManager.transactionComplete(tid, commit);
+        if (lockedPages == null)
+            // no locked pages
+            return;
+
+        for (PageId pid : lockedPages) {
+            int ind = pageid2ind.getOrDefault(pid, -1);
+            if (ind == -1)
+                // may have been evicted for SHARED locks
+                continue;
+            Page page = pages[ind];
+            if (page != null && lockManager.is_exclusive(pid)) {
+                if (commit) {
+                    // commit transaction
+                    if (dirty.get(ind)) {
+                        flushPage(pid);
+                        page.setBeforeImage();
+                    }
+                } else
+                    // abort transaction
+                    pages[ind] = page.getBeforeImage();
+            }
+            lockManager.release_lock(tid, pid);
+        }
     }
 
     /**
@@ -314,19 +339,33 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        PageId toEvict = LRUList.pollFirst();
+        Iterator<PageId> LRUIter = LRUList.iterator();
+        PageId toEvict = null;
+        while (LRUIter.hasNext()) {
+            toEvict = LRUIter.next();
+            int ind = pageid2ind.get(toEvict);
+            Page page = pages[ind];
+//            if (! dirty.get(ind))
+                // not dirty
+//                break;
+            if (page.isDirty() == null)
+                break;
+        }
+
+//        PageId toEvict = LRUList.pollFirst();
         int ind = pageid2ind.get(toEvict);
         // flush dirty page
-        if (dirty.get(ind)) {
-            try {
-                flushPage(toEvict);
-            } catch (IOException e) {
-                throw new DbException("@evictPage IOException");
-            }
+//        if (dirty.get(ind)) {
+        try {
+            flushPage(toEvict);
+        } catch (IOException e) {
+            throw new DbException("@evictPage IOException");
         }
+//        }
         assert (!empty.get(ind));
-        pageid2ind.remove(toEvict);
         empty.set(ind);
+        pageid2ind.remove(toEvict);
+        LRUList.remove(toEvict);
     }
 
 }

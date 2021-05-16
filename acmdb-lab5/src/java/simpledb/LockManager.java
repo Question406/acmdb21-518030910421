@@ -59,7 +59,8 @@ public class LockManager {
         synchronized (pid2LockTable.get(pid)) {
             pid2LockTable.get(pid).release_lock(tid);
         }
-        tid2PagesTable.get(tid).remove(pid);
+        if (tid2PagesTable.containsKey(tid))
+            tid2PagesTable.get(tid).remove(pid);
     }
 
     public boolean holding_lock(TransactionId tid, PageId pid){
@@ -68,4 +69,13 @@ public class LockManager {
         }
     }
 
+    public boolean is_exclusive(PageId pid) {
+        return pid2LockTable.get(pid).is_exclusive();
+    }
+
+    public HashSet<PageId> transactionComplete(TransactionId tid, boolean commit){
+        HashSet<PageId> lockedPages = tid2PagesTable.get(tid);
+        tid2PagesTable.remove(tid);
+        return lockedPages;
+    }
 }
