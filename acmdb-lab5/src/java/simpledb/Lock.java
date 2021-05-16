@@ -25,7 +25,6 @@ public class Lock {
         if (perm.equals(Permissions.READ_ONLY)) {
             if (exclusiveLock != null) {
                 // some tid may be writing
-                assert lockType == LockType.EXCLUSIVE;
                 return exclusiveLock.equals(tid);
             }
             this.lockType = LockType.SHARED;
@@ -33,10 +32,8 @@ public class Lock {
             return true;
         } else if (perm.equals(Permissions.READ_WRITE)){
             if (exclusiveLock != null) {
-                assert lockType == LockType.EXCLUSIVE;
                 return exclusiveLock.equals(tid);
             }
-            assert lockType == LockType.SHARED;
             if (sharedLocks.size() > 1)
                 // can't be the same tid
                 return false;

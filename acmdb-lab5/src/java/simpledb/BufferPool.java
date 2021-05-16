@@ -84,6 +84,9 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+        // get LOCK first before real working
+        lockManager.acquire_lock(perm, tid, pid);
+
         if (pageid2ind.containsKey(pid)) {
             // hit in buffer pool
             int ind = pageid2ind.get(pid);
@@ -124,6 +127,7 @@ public class BufferPool {
     public  void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        lockManager.release_lock(tid, pid);
     }
 
     /**
@@ -140,7 +144,7 @@ public class BufferPool {
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return lockManager.holding_lock(tid, p);
     }
 
     /**
