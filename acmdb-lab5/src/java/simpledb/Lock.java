@@ -74,7 +74,7 @@ public class Lock {
             throw new RuntimeException("Unknown lock type @holding_lock");
     }
     
-    public HashSet<TransactionId> get_edges(){
+    public HashSet<TransactionId> get_to_nodes(){
         HashSet<TransactionId> transactionIds = new HashSet<>(sharedLocks);
         if (exclusiveLock != null) {
             assert sharedLocks.isEmpty();

@@ -1,6 +1,8 @@
 package simpledb;
 
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class LockManager {
@@ -14,7 +16,7 @@ public class LockManager {
         this.dpGraph = new DependencyGraph();
     }
 
-    private static class DependencyGraph {
+    private class DependencyGraph {
         private ConcurrentHashMap<TransactionId, HashSet<TransactionId>> edges;
 
         public DependencyGraph(){
@@ -22,10 +24,34 @@ public class LockManager {
         }
 
         public void updateEdges(TransactionId tid, PageId start){
-
+            edges.putIfAbsent(tid, new HashSet<>());
+            HashSet<TransactionId> newtoNodes = null;
+            synchronized (pid2LockTable.get(start)) {
+                newtoNodes = pid2LockTable.get(start).get_to_nodes();
+            }
+            edges.replace(tid, newtoNodes);
         }
 
-        public boolean hasCycle(){
+        public boolean hasCycle(TransactionId start){
+            // BFS
+            HashSet<TransactionId> visited = new HashSet<>();
+            Queue<TransactionId> queue = new LinkedList<>();
+            queue.add(start);
+            while (!queue.isEmpty()){
+                TransactionId cur = queue.poll();
+                HashSet<TransactionId> toNodes = edges.get(cur);
+                if (toNodes == null)
+                    continue;
+                for (TransactionId toNode : toNodes) {
+                    if (toNode.equals(start))
+                        // found cycle
+                        return true;
+                    if (! visited.contains(toNode)){
+                        queue.add(toNode);
+                        visited.add(toNode);
+                    }
+                }
+            }
             return false;
         }
     }
@@ -42,9 +68,9 @@ public class LockManager {
             Thread.yield();
             // here this thread is notified by some others, which means dpGraph may be updated
             dpGraph.updateEdges(tid, pid);
-            if (dpGraph.hasCycle())
+            if (dpGraph.hasCycle(tid))
                 // find dead lock
-                throw new TransactionAbortedException("DeadLock Detected");
+                throw new TransactionAbortedException("Dead lock detected");
             // check dead lock
             synchronized (pid2LockTable.get(pid)) {
                 get_lock = pid2LockTable.get(pid).acquire_lock(perm, tid);
