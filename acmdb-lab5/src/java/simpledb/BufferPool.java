@@ -173,7 +173,7 @@ public class BufferPool {
             if (page != null && lockManager.is_exclusive(pid)) {
                 if (commit) {
                     // commit transaction
-                    if (dirty.get(ind)) {
+                    if (page.isDirty() != null) {
                         flushPage(pid);
                         page.setBeforeImage();
                     }
@@ -206,10 +206,12 @@ public class BufferPool {
         // not necessary for lab1
         DbFile toAddtable = Database.getCatalog().getDatabaseFile(tableId);
         ArrayList<Page> dirtyPages = toAddtable.insertTuple(tid, t);
-        for (Page dirtyPage : dirtyPages) {
-            dirtyPage.markDirty(true, tid);
-            // this page may not be in bufferPool, from BufferPoolWriteTest
-            addPage(tid, dirtyPage);
+        synchronized (this) {
+            for (Page dirtyPage : dirtyPages) {
+                dirtyPage.markDirty(true, tid);
+                // this page may not be in bufferPool, from BufferPoolWriteTest
+                addPage(tid, dirtyPage);
+            }
         }
     }
 
@@ -293,6 +295,7 @@ public class BufferPool {
         int ind = pageid2ind.getOrDefault(pid, -1);
         if (ind != -1) {
             Page toFlush = pages[ind];
+            toFlush.markDirty(false, null);
             Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(toFlush);
             dirty.clear(ind); // mark as undirty, don't change empty since we don't evict it
         }

@@ -69,7 +69,7 @@ public class LockManager {
             get_lock = pid2LockTable.get(pid).acquire_lock(perm, tid);
         }
         while (! get_lock) {
-            // can't get lock, just wait
+            // spin lock, if can't get lock, just wait
             Thread.yield();
             // here this thread is notified by some others, which means dpGraph may be updated
             dpGraph.updateEdges(tid, pid);
