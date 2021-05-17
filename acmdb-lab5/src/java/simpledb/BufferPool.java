@@ -341,19 +341,21 @@ public class BufferPool {
         // not necessary for lab1
         Iterator<PageId> LRUIter = LRUList.iterator();
         PageId toEvict = null;
+        int ind = -1;
         while (LRUIter.hasNext()) {
-            toEvict = LRUIter.next();
-            int ind = pageid2ind.get(toEvict);
+            PageId curPageId = LRUIter.next();
+            ind = pageid2ind.get(curPageId);
             Page page = pages[ind];
-//            if (! dirty.get(ind))
-                // not dirty
-//                break;
-            if (page.isDirty() == null)
+            if (page.isDirty() == null) {
+                toEvict = curPageId;
                 break;
+            }
         }
 
-//        PageId toEvict = LRUList.pollFirst();
-        int ind = pageid2ind.get(toEvict);
+        if (toEvict == null)
+            throw new DbException("no page can be evicted @evictPage");
+        else
+            ind = pageid2ind.get(toEvict);
         // flush dirty page
 //        if (dirty.get(ind)) {
         try {

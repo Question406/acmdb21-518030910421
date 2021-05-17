@@ -32,6 +32,11 @@ public class LockManager {
             edges.replace(tid, newtoNodes);
         }
 
+        public void clearEdegs(TransactionId tid) {
+            edges.putIfAbsent(tid, new HashSet<>());
+            edges.get(tid).clear();
+        }
+
         public boolean hasCycle(TransactionId start){
             // BFS
             HashSet<TransactionId> visited = new HashSet<>();
@@ -71,11 +76,13 @@ public class LockManager {
             if (dpGraph.hasCycle(tid))
                 // find dead lock
                 throw new TransactionAbortedException("Dead lock detected");
+            Thread.yield();
             // check dead lock
             synchronized (pid2LockTable.get(pid)) {
                 get_lock = pid2LockTable.get(pid).acquire_lock(perm, tid);
             }
         }
+        dpGraph.clearEdegs(tid);
         
         tid2PagesTable.putIfAbsent(tid, new HashSet<>());
         tid2PagesTable.get(tid).add(pid); // this Transaction holds pid
