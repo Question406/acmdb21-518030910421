@@ -1,6 +1,8 @@
 package simpledb;
 
 import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Lock {
     private enum LockType {
@@ -11,13 +13,13 @@ public class Lock {
     private LockType lockType;
     private PageId lockingPageId;
     // a mutual exlusive lock
-    private HashSet<TransactionId> sharedLocks;
+    private Set<TransactionId> sharedLocks;
     private TransactionId exclusiveLock;
 
     public Lock(PageId lockingPageId) {
         this.lockType = null;
         this.lockingPageId = lockingPageId;
-        this.sharedLocks = new HashSet<>();
+        this.sharedLocks = ConcurrentHashMap.newKeySet();
         this.exclusiveLock = null;
     }
 
