@@ -53,8 +53,8 @@ public class Lock {
     }
 
     public void release_page(TransactionId tid){
-        assert exclusiveLock == null || tid.equals(exclusiveLock);
-        System.out.println(String.format("%s in release", tid));
+//        assert exclusiveLock == null || tid.equals(exclusiveLock);
+//        System.out.println(String.format("%s in release", tid));
         if (tid.equals(exclusiveLock)) {
             exclusiveLock = null;
         }

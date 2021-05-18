@@ -3,6 +3,9 @@ package simpledb;
 import java.io.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.stream.Collectors;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -23,7 +26,7 @@ public class BufferPool {
 
     private int numPages;
     private Page[] pages = null;
-    private HashMap<PageId, Integer> pageid2ind = null; // pageid to page index in bufferpool
+    private ConcurrentHashMap<PageId, Integer> pageid2ind = null; // pageid to page index in bufferpool
     private LinkedList<PageId> LRUList = null; // first is the least recent used element
     private BitSet dirty = null; // use bitmap to mark which slot is dirty
     private BitSet empty = null; // use bitmap to mark which slot is empty
@@ -47,7 +50,7 @@ public class BufferPool {
         this.dirty = new BitSet(numPages);
         this.empty = new BitSet(numPages);
         this.empty.flip(0, numPages); // set all to empty
-        this.pageid2ind = new HashMap<>();
+        this.pageid2ind = new ConcurrentHashMap<>();
         this.LRUList = new LinkedList<>();
         this.lockManager = new LockManager();
     }
@@ -87,31 +90,48 @@ public class BufferPool {
         // get LOCK first before real working
         lockManager.acquire_lock(perm, tid, pid);
 
-        if (pageid2ind.containsKey(pid)) {
-            // hit in buffer pool
-            int ind = pageid2ind.get(pid);
-            LRUList.remove(pid);
-            LRUList.addLast(pid);
-            dirty.set(ind);
-            return pages[ind];
-        }
-        else {
-            // not in buffer pool, collect it from disk
-            // evict first then retrieve
-            if (pageid2ind.size() == numPages)
-                evictPage();
-            // get empty index
-            int emptyInd = empty.nextSetBit(0);
-            assert (emptyInd >= 0 && emptyInd < numPages); // after evict, must have one empty slot
+        synchronized (pageid2ind) {
+            if (pageid2ind.containsKey(pid)) {
+                // hit in buffer pool
+                int ind = pageid2ind.get(pid);
+                LRUList.remove(pid);
+                LRUList.addLast(pid);
+                dirty.set(ind);
+//                if (LRUList.size() != pageid2ind.size()) {
+//                    System.out.println(String.format("%s : %s", LRUList.size(), pageid2ind.size()));
+//                    System.out.println(new ArrayList<>(LRUList));
+//                    System.out.println(new ArrayList<>(pageid2ind.keySet()));
+//                }
+                assert LRUList.size() == pageid2ind.size();
+                assert LRUList.size() <= numPages;
+                return pages[ind];
+            } else {
+                // not in buffer pool, collect it from disk
+                // evict first then retrieve
+                if (pageid2ind.size() == numPages)
+                    evictPage();
+                // get empty index
+                int emptyInd = empty.nextSetBit(0);
+                assert (emptyInd >= 0 && emptyInd < numPages); // after evict, must have one empty slot
 
-            DbFile belongingTable = Database.getCatalog().getDatabaseFile(pid.getTableId());
-            Page retrievedPage = belongingTable.readPage(pid);
-            pages[emptyInd] = retrievedPage;
-            pageid2ind.put(pid, emptyInd);
-            empty.clear(emptyInd); // nonemtpy
-            dirty.set(emptyInd);
-            LRUList.addLast(pid);  // LRU last
-            return pages[emptyInd];
+                DbFile belongingTable = Database.getCatalog().getDatabaseFile(pid.getTableId());
+                Page retrievedPage = belongingTable.readPage(pid);
+//                System.out.println(String.format("new page %s", retrievedPage.getId()));
+                pages[emptyInd] = retrievedPage;
+                pageid2ind.put(pid, emptyInd);
+                empty.clear(emptyInd); // nonemtpy
+                dirty.set(emptyInd);
+                LRUList.addLast(pid);  // LRU last
+//                if (LRUList.size() != pageid2ind.size()) {
+//                    System.out.println(String.format("%s : %s", LRUList.size(), pageid2ind.size()));
+//                    System.out.println(new ArrayList<>(LRUList));
+//                    System.out.println(new ArrayList<>(pageid2ind.keySet()));
+//                }
+                assert LRUList.size() == pageid2ind.size();
+                assert LRUList.size() <= numPages;
+
+                return pages[emptyInd];
+            }
         }
     }
 
@@ -138,9 +158,9 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-        System.out.println(String.format("%s try complete 1", tid));
+//        System.out.println(String.format("%s try complete 1", tid));
         transactionComplete(tid, true);
-        System.out.println(String.format("%s transaction completed 1", tid));
+//        System.out.println(String.format("%s transaction completed 1", tid));
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -161,8 +181,8 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-        System.out.println(String.format("%s try complete 2", tid));
-        HashSet<PageId> lockedPages = lockManager.transactionComplete(tid, commit);
+//        System.out.println(String.format("%s try complete 2", tid));
+        ConcurrentLinkedDeque<PageId> lockedPages = lockManager.transactionComplete(tid, commit);
         if (lockedPages == null)
             // no locked pages
             return;
@@ -186,8 +206,8 @@ public class BufferPool {
             }
 //            lockManager.release_page(tid, pid);
         }
-        lockManager.release_pages(tid, lockedPages);
-        System.out.println(String.format("%s transaction completed 2", tid));
+        lockManager.release_pages(tid);
+//        System.out.println(String.format("%s transaction completed 2", tid));
     }
 
     /**
@@ -211,13 +231,13 @@ public class BufferPool {
         // not necessary for lab1
         DbFile toAddtable = Database.getCatalog().getDatabaseFile(tableId);
         ArrayList<Page> dirtyPages = toAddtable.insertTuple(tid, t);
-        synchronized (this) {
+//        synchronized (this) {
             for (Page dirtyPage : dirtyPages) {
                 dirtyPage.markDirty(true, tid);
                 // this page may not be in bufferPool, from BufferPoolWriteTest
                 addPage(tid, dirtyPage);
             }
-        }
+//        }
     }
 
     /**
@@ -239,13 +259,13 @@ public class BufferPool {
         // not necessary for lab1
         DbFile toDelTable = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
         ArrayList<Page> dirtyPages = toDelTable.deleteTuple(tid, t);
-        synchronized (this) {
+//        synchronized (this) {
             for (Page dirtyPage : dirtyPages) {
                 dirtyPage.markDirty(true, tid);
                 // this page may not be in bufferPool, from BufferPoolWriteTest
                 addPage(tid, dirtyPage);
             }
-        }
+//        }
     }
 
 
@@ -354,11 +374,17 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        int oldsize = LRUList.size();
+
         Iterator<PageId> LRUIter = LRUList.iterator();
         PageId toEvict = null;
         int ind = -1;
         while (LRUIter.hasNext()) {
             PageId curPageId = LRUIter.next();
+            if (pageid2ind.get(curPageId) == null) {
+//                System.out.println(String.format("Problem %s", curPageId));
+                throw new RuntimeException("end here");
+            }
             ind = pageid2ind.get(curPageId);
             Page page = pages[ind];
             if (page.isDirty() == null) {
@@ -379,10 +405,10 @@ public class BufferPool {
         }
         assert (!empty.get(ind));
         empty.set(ind);
-        int emptyInd = empty.nextSetBit(0);
-        assert emptyInd >= 0 && emptyInd < numPages;
         pageid2ind.remove(toEvict);
         LRUList.remove(toEvict);
+
+        assert LRUList.size() + 1 == oldsize;
     }
 
 }

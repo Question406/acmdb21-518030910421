@@ -69,6 +69,7 @@ public class BTreeDeadlockTest extends SimpleDbTestBase {
 		bp.flushAllPages();
 		bp = Database.resetBufferPool(500);
 
+		System.out.println("end setup");
 	}
 
 	/**
