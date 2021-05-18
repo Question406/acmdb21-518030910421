@@ -52,8 +52,9 @@ public class Lock {
             throw new RuntimeException("unkown permission at acquire_lock");
     }
 
-    public void release_lock(TransactionId tid){
+    public void release_page(TransactionId tid){
         assert exclusiveLock == null || tid.equals(exclusiveLock);
+        System.out.println(String.format("%s in release", tid));
         if (tid.equals(exclusiveLock)) {
             exclusiveLock = null;
         }
@@ -65,11 +66,15 @@ public class Lock {
     public boolean holding_lock(TransactionId tid){
         return tid.equals(exclusiveLock) || sharedLocks.contains(tid);
     }
-    
+
+    public boolean holding_exclusive(TransactionId tid) {
+        return tid.equals(exclusiveLock);
+    }
+
     public HashSet<TransactionId> get_to_nodes(){
         HashSet<TransactionId> transactionIds = new HashSet<>(sharedLocks);
         if (exclusiveLock != null) {
-            assert sharedLocks.isEmpty();
+//            assert sharedLocks.isEmpty();
             transactionIds.add(exclusiveLock);
         }
         return transactionIds;

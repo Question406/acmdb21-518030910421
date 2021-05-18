@@ -87,7 +87,6 @@ public class BufferPool {
         // get LOCK first before real working
         lockManager.acquire_lock(perm, tid, pid);
 
-
         if (pageid2ind.containsKey(pid)) {
             // hit in buffer pool
             int ind = pageid2ind.get(pid);
@@ -128,7 +127,7 @@ public class BufferPool {
     public  void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
-        lockManager.release_lock(tid, pid);
+        lockManager.release_page(tid, pid);
     }
 
     /**
@@ -139,7 +138,9 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        System.out.println(String.format("%s try complete 1", tid));
         transactionComplete(tid, true);
+        System.out.println(String.format("%s transaction completed 1", tid));
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -160,6 +161,7 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        System.out.println(String.format("%s try complete 2", tid));
         HashSet<PageId> lockedPages = lockManager.transactionComplete(tid, commit);
         if (lockedPages == null)
             // no locked pages
@@ -182,8 +184,10 @@ public class BufferPool {
                     // abort transaction
                     pages[ind] = page.getBeforeImage();
             }
-            lockManager.release_lock(tid, pid);
+//            lockManager.release_page(tid, pid);
         }
+        lockManager.release_pages(tid, lockedPages);
+        System.out.println(String.format("%s transaction completed 2", tid));
     }
 
     /**
@@ -334,9 +338,14 @@ public class BufferPool {
             empty.clear(emptyInd); // nonemtpy
             dirty.set(emptyInd);
             LRUList.addLast(pid);  // LRU last
+        } else { // in buffer pool
+            int ind = pageid2ind.get(pid);
+            dirty.set(ind);
+            LRUList.remove(pid);
+            LRUList.addLast(pid);
+            pages[ind] = page;
         }
     }
-
 
     /**
      * Discards a page from the buffer pool.

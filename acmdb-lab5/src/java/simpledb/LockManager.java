@@ -17,32 +17,59 @@ public class LockManager {
     }
 
     private class DependencyGraph {
-        private ConcurrentHashMap<TransactionId, HashSet<TransactionId>> edges;
+        private final ConcurrentHashMap<TransactionId, HashSet<TransactionId>> edges;
 
         public DependencyGraph(){
             this.edges = new ConcurrentHashMap<>();
         }
 
-        public boolean updateEdges(TransactionId tid, PageId start){
-            edges.putIfAbsent(tid, new HashSet<>());
-            HashSet<TransactionId> newtoNodes = null;
-            HashSet<TransactionId> nowNodes = edges.get(tid);
-            synchronized (pid2LockTable.get(start)) {
-                newtoNodes = pid2LockTable.get(start).get_to_nodes();
-            }
-            boolean res = false; // check whether changed to decrease deadlock check
-            for (var newnode : newtoNodes) {
-                if (! nowNodes.contains(newnode) && !tid.equals(newnode)) {
-                    edges.get(tid).add(newnode);
-                    res = true;
+        public void debug(){
+            StringBuilder stringBuilder = new StringBuilder();
+            for (TransactionId tid : edges.keySet()){
+                stringBuilder.append(tid);
+                stringBuilder.append(" : ");
+                for (TransactionId x : edges.get(tid)) {
+                    stringBuilder.append(x);
+                    stringBuilder.append(",");
                 }
+                stringBuilder.append("\n");
             }
-            return res;
+//            System.out.println(stringBuilder);
         }
 
-        public void clearEdegs(TransactionId tid) {
-            edges.putIfAbsent(tid, new HashSet<>());
-            edges.get(tid).clear();
+        public boolean updateEdges(TransactionId tid, Lock lock){
+            synchronized (edges) {
+                edges.putIfAbsent(tid, new HashSet<>());
+                HashSet<TransactionId> newtoNodes = null;
+                HashSet<TransactionId> nowNodes = edges.get(tid);
+                newtoNodes = lock.get_to_nodes();
+                boolean res = false; // check whether changed to decrease deadlock check
+                for (var newnode : newtoNodes) {
+                    if (!nowNodes.contains(newnode) && !tid.equals(newnode)) {
+                        edges.get(tid).add(newnode);
+                        res = true;
+                    }
+                }
+                if (res) {
+//                    System.out.println(String.format("after %s update", tid));
+//                    debug();
+                }
+                return res;
+            }
+        }
+
+        public void clearEdges(TransactionId tid) {
+            synchronized (edges) {
+                edges.putIfAbsent(tid, new HashSet<>());
+                edges.get(tid).clear();
+                for (var key : edges.keySet())
+                    if (edges.get(key).contains(tid)) {
+//                        System.out.println("hello");
+                        edges.get(key).remove(tid);
+                    }
+//                System.out.println(String.format("after %s clear", tid));
+//                debug();
+            }
         }
 
         public boolean hasCycle(TransactionId start){
@@ -72,23 +99,25 @@ public class LockManager {
     public void acquire_lock(Permissions perm, TransactionId tid, PageId pid) throws TransactionAbortedException {
         if (! pid2LockTable.containsKey(pid))
             pid2LockTable.put(pid, new Lock(pid));
-        if (holding_lock(tid, pid)) // already holding the lock
-            return;
+//        if (holding_lock(tid, pid)) // already holding the lock
+//            return;
         //try to get
+//        System.out.println(String.format("%s try %s as %s", pid, tid, perm));
         Lock lock = pid2LockTable.get(pid);
-        synchronized (lock) {
-            while (true) {
-                // spin lock
-                boolean get_lock = lock.acquire_lock(perm, tid);
-                if (get_lock) {
-                    dpGraph.clearEdegs(tid);
-                    break;
-                }
-                boolean changed = dpGraph.updateEdges(tid, pid);
-                if (changed) {
-                    if (dpGraph.hasCycle(tid))
-                        throw new TransactionAbortedException("Dead lock detected");
-                }
+        while (true) {
+            // spin lock
+            synchronized (lock) {
+                    boolean get_lock = lock.acquire_lock(perm, tid);
+                    if (get_lock) {
+//                        System.out.println(String.format("lock %s to %s as %s", pid, tid, perm));
+                        dpGraph.clearEdges(tid);
+                        break;
+                    }
+                    boolean changed = dpGraph.updateEdges(tid, lock);
+                    if (changed) {
+                        if (dpGraph.hasCycle(tid))
+                            throw new TransactionAbortedException(String.format("%s Dead lock detected", tid));
+                    }
             }
         }
 
@@ -96,12 +125,28 @@ public class LockManager {
         tid2PagesTable.get(tid).add(pid); // this Transaction holds pid
     }
 
-    public void release_lock(TransactionId tid, PageId pid) {
+    public void release_page(TransactionId tid, PageId pid) {
+//        System.out.println(String.format("%s try release %s", tid, pid));
         synchronized (pid2LockTable.get(pid)) {
-            pid2LockTable.get(pid).release_lock(tid); // release lock on page
+            Lock lock = pid2LockTable.get(pid);
+//            pid2LockTable.get(pid).release_page(tid); // release lock on page
+//            System.out.println(String.format("%s get lock %s", tid, pid));
+            lock.release_page(tid);
+            if (tid2PagesTable.containsKey(tid))
+                tid2PagesTable.get(tid).remove(pid);
+//            System.out.println(String.format("%s release %s", tid, pid));
         }
-        if (tid2PagesTable.containsKey(tid))
-            tid2PagesTable.get(tid).remove(pid);
+    }
+
+    public void release_pages(TransactionId tid, HashSet<PageId> todoPages) {
+        // first release page, then delete lock
+//        System.out.println(String.format("%s try release %s pages", tid, todoPages.size()));
+        for (PageId todo : todoPages){
+            release_page(tid, todo);
+        }
+        tid2PagesTable.remove(tid);
+        dpGraph.clearEdges(tid);
+        dpGraph.edges.remove(tid);
     }
 
     public boolean holding_lock(TransactionId tid, PageId pid){
@@ -116,11 +161,13 @@ public class LockManager {
 
     public HashSet<PageId> transactionComplete(TransactionId tid, boolean commit){
         HashSet<PageId> lockedPages = tid2PagesTable.get(tid);
-        tid2PagesTable.remove(tid);
+//        tid2PagesTable.remove(tid);
+//        dpGraph.clearEdges(tid);
+//        dpGraph.edges.remove(tid);
         return lockedPages;
     }
 }
-//
+
 //package simpledb;
 //
 //import java.util.*;
@@ -134,7 +181,7 @@ public class LockManager {
 //    private final ConcurrentHashMap<TransactionId, ConcurrentLinkedDeque<PageId>> transactionHoldXLocks;
 //    private final ConcurrentHashMap<TransactionId, ConcurrentLinkedDeque<TransactionId>> dependencyGraph;
 //
-//    private LockManager() {
+//    public LockManager() {
 //        locks = new ConcurrentHashMap<>();
 //        sharedLocks = new ConcurrentHashMap<>();
 //        exclusiveLocks = new ConcurrentHashMap<>();
@@ -238,6 +285,10 @@ public class LockManager {
 //        }
 //    }
 //
+//    public boolean is_exclusive(PageId pid){
+//        return exclusiveLocks.containsKey(pid);
+//    }
+//
 //    private void updateDependency(TransactionId acquirer, ArrayList<TransactionId> holders)
 //            throws TransactionAbortedException {
 //        dependencyGraph.putIfAbsent(acquirer, new ConcurrentLinkedDeque<>());
@@ -308,7 +359,7 @@ public class LockManager {
 //        return hasLock(tid, pid, true) || hasLock(tid, pid, false);
 //    }
 //
-//    public ConcurrentHashMap<TransactionId, ConcurrentLinkedDeque<PageId>> getTransactionDirtiedPages() {
-//        return transactionHoldXLocks;
+//    public ConcurrentLinkedDeque<PageId> getTransactionDirtiedPages(TransactionId tid) {
+//        return transactionHoldXLocks.get(tid);
 //    }
 //}
