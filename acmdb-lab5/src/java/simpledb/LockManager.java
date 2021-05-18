@@ -45,7 +45,7 @@ public class LockManager {
                 HashSet<TransactionId> nowNodes = edges.get(tid);
                 newtoNodes = lock.get_to_nodes();
                 boolean res = false; // check whether changed to decrease deadlock check
-                for (var newnode : newtoNodes) {
+                for (TransactionId newnode : newtoNodes) {
                     if (!nowNodes.contains(newnode) && !tid.equals(newnode)) {
                         edges.get(tid).add(newnode);
                         res = true;
@@ -63,7 +63,7 @@ public class LockManager {
             synchronized (edges) {
                 edges.putIfAbsent(tid, new HashSet<>());
                 edges.get(tid).clear();
-                for (var key : edges.keySet())
+                for (TransactionId key : edges.keySet())
                     if (edges.get(key).contains(tid)) {
 //                        System.out.println("hello");
                         edges.get(key).remove(tid);
