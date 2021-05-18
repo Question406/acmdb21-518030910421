@@ -87,6 +87,7 @@ public class BufferPool {
         // get LOCK first before real working
         lockManager.acquire_lock(perm, tid, pid);
 
+
         if (pageid2ind.containsKey(pid)) {
             // hit in buffer pool
             int ind = pageid2ind.get(pid);
